@@ -27,9 +27,9 @@ The original C implementation (`plGeoAdaptels`) was developed by **Paweł Netzel
 
 The algorithm was applied to standing dead tree detection in:
 
-> I. Pawelec, P.Hawryło, P. Netzel, J. Socha
-> *"Superpixel-based segmentation of standing dead trees from aerial photographs"*,
-> International Journal of Applied Earth Observation and Geoinformation, 2026.
+> Pawelec, I., Hawryło, P., Netzel, P., & Socha, J. (2026).
+> Evaluating superpixel algorithms for standing dead tree delineation using aerial orthoimagery.
+> JAG, 147, 105180. doi:10.1016/j.jag.2026.105180
 
 ## Installation
 
