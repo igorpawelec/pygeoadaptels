@@ -193,7 +193,7 @@ If you use this software in your research, please cite:
 
 3. **The original C implementation:**
 
-   > Netzel, P. plGeoAdaptels [Software]. University of Agriculture in Kraków. https://github.com/pawelnetzel/plGeoAdaptels
+   > Netzel, P. plGeoAdaptels [Software]. University of Agriculture in Kraków. https://gitlist.netzel.pl/
 
 4. **SICLE algorithm:**
 
