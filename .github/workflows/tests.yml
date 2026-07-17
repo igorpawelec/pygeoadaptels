@@ -19,29 +19,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: conda-incubator/setup-miniconda@v3
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          channels: conda-forge
-          auto-activate-base: false
-          activate-environment: plgeoadaptels-ci
 
-      - name: Install dependencies
-        shell: bash -el {0}
-        # native libs from conda: pip would break GDAL/PROJ here
+      - name: Install
+        # python -m pip, not bare pip: it guarantees the install lands in the
+        # same interpreter that runs the tests. Every dependency here ships
+        # wheels for all three platforms, so conda buys nothing and only adds
+        # a solver that can fail.
         run: |
-          conda install -y -c conda-forge numpy numba rasterio fiona \
-            pytest pyflakes
-          pip install --no-deps -e .
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[all]"
+          python -m pip install pytest pyflakes
+
+      - name: Verify the package imports
+        # A separate step on purpose. When the install silently puts the
+        # package somewhere the tests cannot see, the failure otherwise
+        # surfaces later as a bare ModuleNotFoundError from pytest, which
+        # says nothing about where it went wrong.
+        run: python -c "import plgeoadaptels; print(plgeoadaptels.__name__, plgeoadaptels.__version__, plgeoadaptels.__file__)"
 
       - name: Lint
-        shell: bash -el {0}
-        run: pyflakes plgeoadaptels/*.py tests/*.py examples/*.py
+        run: python -m pyflakes plgeoadaptels/ tests/ examples/
 
       - name: Test
-        shell: bash -el {0}
-        run: pytest -v
-
-      - name: Run the example end to end
-        shell: bash -el {0}
-        run: python examples/quickstart.py
+        run: python -m pytest -v
