@@ -32,6 +32,30 @@ DISTANCE_MAP = {
 }
 
 
+def _validate_params(threshold, distance):
+    """
+    Check the parameters both entry points share, and resolve the distance.
+
+    Kept in one place deliberately. When create_adaptels() and
+    adaptels_from_array() each validated separately, the array version
+    quietly fell back to minkowski on an unrecognised distance, so a typo
+    like 'cosin' returned a full minkowski segmentation with no warning —
+    a different result by orders of magnitude, silently mislabelled.
+
+    Returns
+    -------
+    int
+        The integer distance code for the Numba kernel.
+    """
+    if threshold <= 0:
+        raise ValueError("Threshold must be greater than 0")
+    if distance not in DISTANCE_MAP:
+        raise ValueError(
+            f"Unknown distance '{distance}'. Use: {list(DISTANCE_MAP.keys())}"
+        )
+    return DISTANCE_MAP[distance]
+
+
 def create_adaptels(input_files, output_file=None,
                     threshold=60.0, distance='minkowski',
                     minkowski_p=2.0, queen_topology=False,
@@ -86,13 +110,7 @@ def create_adaptels(input_files, output_file=None,
     if isinstance(input_files, str):
         input_files = [input_files]
     
-    if threshold <= 0:
-        raise ValueError("Threshold must be greater than 0")
-    
-    if distance not in DISTANCE_MAP:
-        raise ValueError(f"Unknown distance '{distance}'. Use: {list(DISTANCE_MAP.keys())}")
-    
-    distance_type = DISTANCE_MAP[distance]
+    distance_type = _validate_params(threshold, distance)
     connectivity = 8 if queen_topology else 4
     
     # Progress bar (optional)
@@ -211,7 +229,7 @@ def adaptels_from_array(data, mask=None, threshold=60.0,
     if normalize:
         layers = normalize_layers(layers, mask_flat)
     
-    distance_type = DISTANCE_MAP.get(distance, 0)
+    distance_type = _validate_params(threshold, distance)
     connectivity = 8 if queen_topology else 4
     
     labels, n_adaptels = _create_adaptels(

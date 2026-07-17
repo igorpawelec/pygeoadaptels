@@ -11,8 +11,7 @@ Pure Python + Numba reimplementation for portability.
 """
 
 import numpy as np
-from numba import njit, int32, int64, float64, uint8
-from numba.types import Tuple
+from numba import njit, int32, int64, float64
 
 
 # ==========================================================================

@@ -55,7 +55,7 @@ try:
     from .adaptels import create_adaptels, adaptels_from_array
     from .io import read_raster, write_raster, normalize_layers
     _LAZY_MODE = False
-except (ImportError, OSError) as _init_err:
+except (ImportError, OSError):
     _LAZY_MODE = True
     _LAZY_IMPORTS = {
         "create_adaptels":     ".adaptels",

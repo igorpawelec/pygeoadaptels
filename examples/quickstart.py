@@ -1,17 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-Test plgeoadaptels package with a real GeoTIFF.
+plGeoAdaptels quickstart, on the GeoTIFF shipped with the repository.
 
-Installation:
-    cd plgeoadaptels
     pip install -e .
+    python examples/quickstart.py
 
-Usage in Spyder: run cells one by one.
+Written in cells, so it also runs a block at a time in Spyder, VS Code or
+Positron. Paths are relative to the repository root; run it from there.
 """
 
 #%% Setup
+import os
 import numpy as np
 import time
+
+# repo root, so the script works wherever it is launched from
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(HERE, "examples", "output")
+os.makedirs(OUT, exist_ok=True)
 
 # If installed with pip install -e . this just works:
 from plgeoadaptels import create_adaptels, adaptels_from_array
@@ -41,8 +47,8 @@ print("=" * 60)
 print("TEST 3: GeoTIFF - SNP_21_2020_1.tif")
 print("=" * 60)
 
-inp = r"D:\Projects\Test\SNP_21_2020_1.tif"
-out = r"D:\Projects\Test\out_python_module\adaptels_python.tif"
+inp = os.path.join(HERE, "test_data", "SNP_21_2020_1.tif")
+out = os.path.join(OUT, "adaptels_python.tif")
 
 t0 = time.time()
 labels3, n3 = create_adaptels(inp, out, threshold=60.0)
@@ -55,7 +61,7 @@ print("=" * 60)
 print("TEST 4: GeoTIFF - with normalization")
 print("=" * 60)
 
-out4 = r"D:\Projects\Test\out_python_module\adaptels_normalized.tif"
+out4 = os.path.join(OUT, "adaptels_normalized.tif")
 
 labels4, n4 = create_adaptels(inp, out4, threshold=20.0, normalize=True)
 print(f"Result: {n4} adaptels")
@@ -65,7 +71,7 @@ print("=" * 60)
 print("TEST 5: Cosine distance")
 print("=" * 60)
 
-out5 = r"D:\Projects\Test\out_python_module\adaptels_cosine.tif"
+out5 = os.path.join(OUT, "adaptels_cosine.tif")
 
 labels5, n5 = create_adaptels(inp, out5, threshold=60.0, distance='cosine')
 print(f"Result: {n5} adaptels")
@@ -75,7 +81,7 @@ print("=" * 60)
 print("TEST 6: Queen topology (8-connectivity)")
 print("=" * 60)
 
-out6 = r"D:\Projects\Test\out_python_module\adaptels_queen.tif"
+out6 = os.path.join(OUT, "adaptels_queen.tif")
 
 labels6, n6 = create_adaptels(inp, out6, threshold=60.0, queen_topology=True)
 print(f"Result: {n6} adaptels")

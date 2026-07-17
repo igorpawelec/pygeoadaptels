@@ -12,7 +12,7 @@ Reuses min-heap from plgeoadaptels.core.
 """
 
 import numpy as np
-from numba import njit, int32, int64, float64, prange
+from numba import njit, int32, int64, float64
 from .core import heap_insert, heap_extract
 
 

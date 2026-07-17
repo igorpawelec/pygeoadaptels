@@ -8,7 +8,7 @@ Usage:
 
 import argparse
 import sys
-import time
+
 from .adaptels import create_adaptels
 
 

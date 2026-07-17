@@ -8,7 +8,6 @@ import numpy as np
 
 try:
     import rasterio
-    from rasterio.transform import from_bounds
     HAS_RASTERIO = True
 except ImportError:
     HAS_RASTERIO = False
