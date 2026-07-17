@@ -24,6 +24,15 @@ All notable changes to this project will be documented in this file.
 - **`adaptels_from_array` did not validate `threshold`.** A negative threshold
   returned one adaptel per pixel and reported it as a result.
 - `MANIFEST.in` referenced `LICENSE.md`; the repository ships `LICENSE`.
+- **The README's own CLI example was broken.** It showed
+  `-t 40.0 -d cosine`, a threshold four times outside that metric's range,
+  so anyone copying it got a collapsed raster. Now `-t 0.03 -d angular`,
+  which is verified to run.
+- **The CLI printed tracebacks.** A missing raster surfaced as a raw
+  `RasterioIOError` stack; user mistakes now get one clean line on stderr.
+- **`python -m plgeoadaptels` always exited 0.** `__main__.py` called
+  `main()` without passing its return value to `sys.exit()`, so a failed run
+  reported success and any script checking `$?` missed it.
 
 ### Changed
 - **`plgeoadaptels/test_adaptels.py` moved to `examples/quickstart.py`.** It
@@ -38,6 +47,24 @@ All notable changes to this project will be documented in this file.
   TOML table form is deprecated and stops working 2027-02-18. Needs
   setuptools >= 77.
 - Unused imports removed; `pyflakes` is clean.
+- README documents the threshold scale per metric, with measured adaptel
+  counts, since one threshold does not carry across them.
+
+### Added
+- **`enforce_connectivity()`**, which splits any adaptel that is not a single
+  connected region. The competition between adaptels can cut an earlier one
+  in two, so about 10% of adaptels at the default threshold arrive in more
+  than one piece — which matters as soon as anything computes zonal
+  statistics per label. Not applied automatically: it changes the adaptel
+  count, so it stays an explicit call.
+- GitHub Actions CI: tests, lint and the example, on Linux/macOS/Windows
+  across Python 3.9-3.12. The 0.2.0 entry below claimed a CI smoke test, but
+  no workflow was ever committed.
+- Tests for the distance metrics: each must return 0 for identical spectra
+  and grow with dissimilarity, and each must respond to its own threshold.
+  The previous `test_distance_metrics` asserted only `n >= 1`, which holds
+  even when a metric collapses the raster to a single adaptel — which is
+  exactly how the broken `cosine` passed.
 
 ## [0.2.0] — 2026-03-04
 

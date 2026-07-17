@@ -73,8 +73,24 @@ print("=" * 60)
 
 out5 = os.path.join(OUT, "adaptels_cosine.tif")
 
-labels5, n5 = create_adaptels(inp, out5, threshold=60.0, distance='cosine')
+# NOTE the threshold. Minkowski distances follow the data range (~0-441 for
+# 8-bit 3-band), but cosine and angular are bounded by 1, so the default of
+# 60 would merge the whole raster into one adaptel. Passing it now raises
+# rather than returning that quietly.
+labels5, n5 = create_adaptels(inp, out5, threshold=0.01, distance='cosine')
 print(f"Result: {n5} adaptels")
+
+#%% Test 5b: Angular distance — brightness-insensitive
+print("=" * 60)
+print("TEST 5b: Angular distance")
+print("=" * 60)
+
+out5b = os.path.join(OUT, "adaptels_angular.tif")
+
+# Compares the direction of the spectral vector, not its length, so the same
+# material in sun and in shade lands in one adaptel where minkowski splits it.
+labels5b, n5b = create_adaptels(inp, out5b, threshold=0.03, distance='angular')
+print(f"Result: {n5b} adaptels")
 
 #%% Test 6: 8-connectivity
 print("=" * 60)

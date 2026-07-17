@@ -234,3 +234,129 @@ class TestDistanceMetrics:
         _, a = adaptels_from_array(img, threshold=0.03, distance="angular")
         _, c = adaptels_from_array(img, threshold=0.03, distance="cosine")
         assert a > 0 and c > 0
+
+
+class TestEnforceConnectivity:
+    """Adaptels compete for pixels, so a later one can cut an earlier one in
+    two and leave a single label spread over separate patches. At the default
+    threshold roughly 10% of adaptels come out in more than one piece, which
+    matters as soon as anything computes zonal statistics per label.
+    """
+
+    @staticmethod
+    def _n_split(labels, n):
+        from scipy import ndimage
+        c = 0
+        for k in range(n):
+            m = labels == k
+            if m.any():
+                _, nc = ndimage.label(m)
+                if nc > 1:
+                    c += 1
+        return c
+
+    @pytest.fixture
+    def segmented(self):
+        from plgeoadaptels import adaptels_from_array
+        rng = np.random.default_rng(4)
+        img = rng.uniform(0, 255, (3, 90, 90))
+        return adaptels_from_array(img, threshold=30.0)
+
+    def test_removes_all_splits(self, segmented):
+        from plgeoadaptels import enforce_connectivity
+        labels, n = segmented
+        out, n2 = enforce_connectivity(labels)
+        assert self._n_split(out, n2) == 0
+
+    def test_never_merges_across_adaptels(self, segmented):
+        from plgeoadaptels import enforce_connectivity
+        labels, n = segmented
+        out, n2 = enforce_connectivity(labels)
+        for k in range(n2):
+            assert len(np.unique(labels[out == k])) == 1, \
+                "a new adaptel must lie inside exactly one old one"
+
+    def test_preserves_coverage(self, segmented):
+        from plgeoadaptels import enforce_connectivity
+        labels, _ = segmented
+        out, _ = enforce_connectivity(labels)
+        np.testing.assert_array_equal(labels >= 0, out >= 0)
+
+    def test_labels_contiguous(self, segmented):
+        from plgeoadaptels import enforce_connectivity
+        labels, _ = segmented
+        out, n2 = enforce_connectivity(labels)
+        assert sorted(np.unique(out[out >= 0])) == list(range(n2))
+
+    def test_idempotent(self, segmented):
+        from plgeoadaptels import enforce_connectivity
+        labels, _ = segmented
+        out, _ = enforce_connectivity(labels)
+        again, _ = enforce_connectivity(out)
+        np.testing.assert_array_equal(out, again)
+
+    def test_count_can_only_grow(self, segmented):
+        from plgeoadaptels import enforce_connectivity
+        labels, n = segmented
+        _, n2 = enforce_connectivity(labels)
+        assert n2 >= n, "splitting can only add adaptels, never remove them"
+
+    def test_min_size_absorbs_slivers(self):
+        """A sliver below min_size joins a neighbour instead of becoming its own.
+
+        Hand-built rather than taken from a segmented image: whether a random
+        raster happens to contain a split adaptel small enough to absorb is
+        not something a test should depend on.
+        """
+        from plgeoadaptels import enforce_connectivity
+        labels = np.full((10, 10), -1, dtype=np.int32)
+        labels[:, :] = 1              # background first...
+        labels[0:5, 0:5] = 0          # a solid block
+        labels[9, 9] = 0              # ...then one stray pixel with the same id
+        assert labels[9, 9] == 0 and labels[9, 8] == 1, "fixture is set up wrong"
+
+        keep, n_keep = enforce_connectivity(labels, min_size=0)
+        assert n_keep == 3, "the stray pixel becomes its own adaptel"
+        assert keep[9, 9] != keep[0, 0]
+
+        absorb, n_absorb = enforce_connectivity(labels, min_size=1)
+        assert n_absorb < n_keep, "the stray is absorbed, not kept"
+        assert absorb[9, 9] == absorb[9, 8], "it joins the adjacent adaptel"
+        assert self._n_split(absorb, n_absorb) == 0
+        np.testing.assert_array_equal(labels >= 0, absorb >= 0)
+
+    def test_min_size_preserves_coverage_on_real_segmentation(self, segmented):
+        from plgeoadaptels import enforce_connectivity
+        labels, _ = segmented
+        for ms in (0, 5, 20):
+            out, n = enforce_connectivity(labels, min_size=ms)
+            np.testing.assert_array_equal(labels >= 0, out >= 0)
+            assert self._n_split(out, n) == 0
+
+    def test_splits_a_hand_built_case(self):
+        """Two separate blocks sharing one label must become two adaptels."""
+        from plgeoadaptels import enforce_connectivity
+        labels = np.full((10, 10), -1, dtype=np.int32)
+        labels[1:3, 1:3] = 0
+        labels[7:9, 7:9] = 0          # same id, nowhere near
+        labels[5, 5] = 1
+        out, n = enforce_connectivity(labels)
+        assert n == 3
+        assert out[1, 1] != out[7, 7]
+
+    def test_all_nodata(self):
+        from plgeoadaptels import enforce_connectivity
+        out, n = enforce_connectivity(np.full((5, 5), -1, dtype=np.int32))
+        assert n == 0
+        assert (out < 0).all()
+
+    def test_rejects_3d(self):
+        from plgeoadaptels import enforce_connectivity
+        with pytest.raises(ValueError, match="2-D"):
+            enforce_connectivity(np.zeros((2, 2, 2), dtype=np.int32))
+
+    def test_rejects_negative_min_size(self, segmented):
+        from plgeoadaptels import enforce_connectivity
+        labels, _ = segmented
+        with pytest.raises(ValueError, match="min_size"):
+            enforce_connectivity(labels, min_size=-1)

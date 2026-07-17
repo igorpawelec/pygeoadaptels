@@ -37,18 +37,24 @@ def main():
                         help='Quiet mode')
     
     args = parser.parse_args()
-    
-    labels, n_adaptels = create_adaptels(
-        input_files=args.input,
-        output_file=args.output,
-        threshold=args.threshold,
-        distance=args.distance,
-        minkowski_p=args.minkowski_p,
-        queen_topology=args.queen_topology,
-        normalize=args.normalize,
-        quiet=args.quiet,
-    )
-    
+
+    try:
+        labels, n_adaptels = create_adaptels(
+            input_files=args.input,
+            output_file=args.output,
+            threshold=args.threshold,
+            distance=args.distance,
+            minkowski_p=args.minkowski_p,
+            queen_topology=args.queen_topology,
+            normalize=args.normalize,
+            quiet=args.quiet,
+        )
+    except (OSError, ValueError) as e:
+        # a missing raster or a threshold outside the metric's scale is a
+        # user mistake, not a crash; a traceback helps nobody here
+        print(f"plgeoadaptels: error: {e}", file=sys.stderr)
+        return 1
+
     return 0
 
 

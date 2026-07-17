@@ -100,7 +100,7 @@ labels, n = create_sicle("input.tif", "output.tif", n_segments=200)
 
 ```bash
 plgeoadaptels -i input.tif -o output.tif -t 60.0
-plgeoadaptels -i b1.tif -i b2.tif -o result.tif -t 40.0 -8 -d cosine -n
+plgeoadaptels -i b1.tif -i b2.tif -o result.tif -t 0.03 -8 -d angular -n
 ```
 
 ### As Python module
@@ -115,11 +115,77 @@ python -m plgeoadaptels -i input.tif -o output.tif -t 60.0
 
 | Parameter | Default | Description |
 |---|---|---|
-| `threshold` | 60.0 | Energy threshold *T*. Lower → smaller adaptels, higher → larger |
+| `threshold` | 60.0 | Energy threshold *T*. Lower → smaller adaptels, higher → larger. **Its scale depends on `distance` — see below** |
 | `distance` | `'minkowski'` | Distance metric: `'minkowski'`, `'cosine'`, `'angular'` |
 | `minkowski_p` | 2.0 | Minkowski *p* parameter (2.0 = Euclidean) |
 | `queen_topology` | `False` | `True` = 8-connectivity, `False` = 4-connectivity |
 | `normalize` | `False` | Normalize inputs to [0, 1] before processing |
+
+#### Choosing `threshold` for a metric
+
+The metrics do not share a scale, so a threshold does not carry across them.
+The default of 60 is scaled for `minkowski`; passing it to `cosine` or
+`angular` would merge the whole raster into one adaptel, so it is rejected
+with an error rather than silently returning nonsense.
+
+| `distance` | Range | Typical `threshold` | Notes |
+|---|---|---|---|
+| `minkowski` | 0 … data range | 10 – 120 | Grows with band count and bit depth. For 8-bit 3-band imagery distances reach ~441 |
+| `cosine` | 0 … 1 | 0.002 – 0.05 | Spectral angle as `1 - cos`. Insensitive to brightness |
+| `angular` | 0 … 1 | 0.005 – 0.2 | `arccos(cos) / π`. Also brightness-insensitive, more linear than `cosine` |
+
+Measured on the 3-band raster in `test_data/`, 200 × 200 px:
+
+| `threshold` | `minkowski` | | `threshold` | `angular` |
+|---|---|---|---|---|
+| 10 | 4140 | | 0.002 | 7834 |
+| 30 | 1512 | | 0.01 | 2654 |
+| 60 | 700 | | 0.03 | 855 |
+| 120 | 299 | | 0.2 | 99 |
+
+`cosine` and `angular` compare the *direction* of the spectral vector rather
+than its length, so the same material lit differently — a crown in sun versus
+in shade — lands in one adaptel. `minkowski` will split it.
+
+#### A note on where `60` comes from
+
+The default is inherited from the original method, which works in **CIELAB**,
+where a colour distance of 1 is roughly one just-noticeable difference and
+40-80 is the recommended band. Raster bands are not CIELAB: reflectance, DN
+values and indices all carry their own scales. Treat 60 as a starting point
+to calibrate from, not a value with meaning on your data.
+
+### Contiguity
+
+Adaptels compete for pixels — a later adaptel takes a pixel from an earlier
+one whenever it reaches it with a smaller accumulated distance. That
+competition is what gives the method its boundary adherence, but it can also
+cut an earlier adaptel in two, leaving one label spread over separate
+patches.
+
+Measured on the 3-band raster in `test_data/`, 400 × 400 px:
+
+| `threshold` | adaptels | not contiguous | worst |
+|---|---|---|---|
+| 20 | 9289 | 242 (2.6%) | 9 pieces |
+| 60 | 2770 | 265 (9.6%) | 4 pieces |
+| 100 | 1488 | 167 (11.2%) | 4 pieces |
+
+This is harmless if the labels are only a lookup. It is **not** harmless for
+object-based analysis: zonal statistics over a split adaptel average two
+spatially separate patches into one "object".
+
+```python
+from plgeoadaptels import adaptels_from_array, enforce_connectivity
+
+labels, n = adaptels_from_array(data, threshold=60.0)   # 2770, 265 split
+labels, n = enforce_connectivity(labels)                # 3066, 0 split
+```
+
+Every connected component becomes its own adaptel, so the count rises by
+about 10%. Nothing is merged and no pixel changes hands. Pass
+`min_size=` to absorb fragments below a size into an adjacent adaptel
+instead of keeping them. Needs `scipy`.
 
 ### SICLE
 

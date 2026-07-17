@@ -52,13 +52,15 @@ __author__ = "Igor Pawelec"
 # Fall back to lazy __getattr__ if numba/rasterio are broken or missing.
 
 try:
-    from .adaptels import create_adaptels, adaptels_from_array
+    from .adaptels import (create_adaptels, adaptels_from_array,
+                           enforce_connectivity)
     from .io import read_raster, write_raster, normalize_layers
     _LAZY_MODE = False
 except (ImportError, OSError):
     _LAZY_MODE = True
     _LAZY_IMPORTS = {
         "create_adaptels":     ".adaptels",
+        "enforce_connectivity": ".adaptels",
         "adaptels_from_array": ".adaptels",
         "read_raster":         ".io",
         "write_raster":        ".io",
@@ -83,6 +85,7 @@ except (ImportError, OSError):
 
 __all__ = [
     "create_adaptels",
+    "enforce_connectivity",
     "adaptels_from_array",
     "read_raster",
     "write_raster",
