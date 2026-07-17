@@ -53,6 +53,20 @@ def _validate_params(threshold, distance):
         raise ValueError(
             f"Unknown distance '{distance}'. Use: {list(DISTANCE_MAP.keys())}"
         )
+    # The metrics live on different scales, so one threshold does not carry
+    # across them. 'cosine' and 'angular' are bounded by 1 by construction;
+    # a threshold above that means "merge everything" and silently returns
+    # a single adaptel, which looks like a broken algorithm rather than a
+    # misread parameter. 'minkowski' grows with the data range and band
+    # count, so it has no upper bound to check against.
+    if distance in ("cosine", "angular") and threshold > 1.0:
+        raise ValueError(
+            f"threshold={threshold} is outside the range of the '{distance}' "
+            f"metric, which produces distances in [0, 1]. Anything above 1 "
+            f"merges the whole raster into one adaptel. Typical values are "
+            f"0.005-0.2; try 0.03 to start. (The default threshold of 60 is "
+            f"scaled for 'minkowski', whose distances follow the data range.)"
+        )
     return DISTANCE_MAP[distance]
 
 

@@ -97,6 +97,10 @@ def calc_distance(layers, n_layers, cumul_sum, index,
             dist += diff ** minkowski_p
         dist = (dist ** (1.0 / minkowski_p)) / sp_size
     elif distance_type == 1:  # cosine
+        # cosine DISTANCE = 1 - similarity. The bare ratio is a similarity:
+        # it is 1.0 for identical spectra and falls towards 0 as they
+        # diverge, which is backwards for a value the caller compares
+        # against a growth threshold.
         A = 1.0
         B = 1.0
         AB = 1.0
@@ -105,7 +109,7 @@ def calc_distance(layers, n_layers, cumul_sum, index,
             A += mean * mean
             B += layers[i, index] * layers[i, index]
             AB += layers[i, index] * mean
-        dist = AB / np.sqrt(A * B)
+        dist = 1.0 - AB / np.sqrt(A * B)
     elif distance_type == 2:  # angular
         A = 1.0
         B = 1.0

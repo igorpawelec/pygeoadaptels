@@ -62,11 +62,21 @@ class TestAdaptelsFromArray:
         assert n >= 1
         assert labels.shape == (100, 100)
 
-    @pytest.mark.parametrize("dist", ["minkowski", "cosine", "angular"])
-    def test_distance_metrics(self, gradient_data, dist):
+    # thresholds are per-metric: minkowski grows with the data range, while
+    # cosine and angular are bounded by 1
+    @pytest.mark.parametrize("dist,thresh", [("minkowski", 30.0),
+                                             ("cosine", 0.03),
+                                             ("angular", 0.03)])
+    def test_distance_metrics(self, gradient_data, dist, thresh):
         from plgeoadaptels import adaptels_from_array
-        labels, n = adaptels_from_array(gradient_data, threshold=30.0, distance=dist)
-        assert n >= 1
+        labels, n = adaptels_from_array(gradient_data, threshold=thresh,
+                                        distance=dist)
+        # `n >= 1` would pass even when a metric collapses the whole raster
+        # into one adaptel, which is exactly how the broken cosine went
+        # unnoticed. Require a real segmentation instead.
+        assert n > 1, f"{dist} produced {n} adaptel(s): the metric is degenerate"
+        assert labels.shape == gradient_data.shape[1:]
+        assert set(np.unique(labels)) <= set(range(n))
 
     def test_multiband(self):
         from plgeoadaptels import adaptels_from_array
@@ -165,3 +175,62 @@ class TestSicleFromArray:
         labels, n = sicle_from_array(data, n_segments=10,
                                      n_oversampling=5, quiet=True)
         assert n == 10
+
+
+class TestDistanceMetrics:
+    """Each metric must behave as a distance, and honour its own scale.
+
+    These exist because 'cosine' shipped returning a similarity: it was 1.0
+    for identical pixels and fell towards 0 as they diverged, so the growth
+    threshold worked backwards and the parameter barely moved the result.
+    """
+
+    @staticmethod
+    def _dist(mean, px, code):
+        from plgeoadaptels.core import calc_distance
+        n = len(mean)
+        layers = np.ascontiguousarray(np.array(px, dtype=np.float64).reshape(n, 1))
+        return calc_distance(layers, n, np.array(mean, dtype=np.float64),
+                             0, 1, code, 2.0)
+
+    @pytest.mark.parametrize("code", [0, 1, 2])
+    def test_zero_for_identical(self, code):
+        base = [100.0, 150.0, 200.0]
+        assert self._dist(base, base, code) == pytest.approx(0.0, abs=1e-9)
+
+    @pytest.mark.parametrize("code", [0, 1, 2])
+    def test_grows_with_dissimilarity(self, code):
+        base = [100.0, 150.0, 200.0]
+        near = self._dist(base, [105.0, 155.0, 205.0], code)
+        far = self._dist(base, [200.0, 50.0, 10.0], code)
+        assert near <= far
+
+    @pytest.mark.parametrize("distance", ["cosine", "angular"])
+    def test_threshold_above_scale_rejected(self, distance):
+        from plgeoadaptels import adaptels_from_array
+        img = np.random.default_rng(0).uniform(0, 255, (3, 30, 30))
+        # the package default of 60 is scaled for minkowski and would merge
+        # a bounded metric into a single adaptel
+        with pytest.raises(ValueError, match="outside the range"):
+            adaptels_from_array(img, threshold=60.0, distance=distance)
+
+    @pytest.mark.parametrize("distance", ["cosine", "angular"])
+    def test_threshold_responds(self, distance):
+        from plgeoadaptels import adaptels_from_array
+        img = np.random.default_rng(0).uniform(0, 255, (3, 40, 40))
+        _, n_tight = adaptels_from_array(img, threshold=0.002, distance=distance)
+        _, n_loose = adaptels_from_array(img, threshold=0.2, distance=distance)
+        assert n_tight > n_loose, "threshold must change the segmentation"
+
+    def test_minkowski_accepts_large_threshold(self):
+        from plgeoadaptels import adaptels_from_array
+        img = np.random.default_rng(0).uniform(0, 255, (3, 30, 30))
+        _, n = adaptels_from_array(img, threshold=60.0, distance="minkowski")
+        assert n > 0
+
+    def test_metrics_differ(self):
+        from plgeoadaptels import adaptels_from_array
+        img = np.random.default_rng(1).uniform(0, 255, (3, 40, 40))
+        _, a = adaptels_from_array(img, threshold=0.03, distance="angular")
+        _, c = adaptels_from_array(img, threshold=0.03, distance="cosine")
+        assert a > 0 and c > 0
