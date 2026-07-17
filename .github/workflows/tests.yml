@@ -1,0 +1,47 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: py${{ matrix.python-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.9", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+          channels: conda-forge
+          auto-activate-base: false
+          activate-environment: plgeoadaptels-ci
+
+      - name: Install dependencies
+        shell: bash -el {0}
+        # native libs from conda: pip would break GDAL/PROJ here
+        run: |
+          conda install -y -c conda-forge numpy numba rasterio fiona \
+            pytest pyflakes
+          pip install --no-deps -e .
+
+      - name: Lint
+        shell: bash -el {0}
+        run: pyflakes plgeoadaptels/*.py tests/*.py examples/*.py
+
+      - name: Test
+        shell: bash -el {0}
+        run: pytest -v
+
+      - name: Run the example end to end
+        shell: bash -el {0}
+        run: python examples/quickstart.py
