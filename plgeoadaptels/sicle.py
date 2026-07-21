@@ -370,7 +370,23 @@ def sicle_from_array(data, mask=None, n_segments=200,
     n_oversampling : int, default 3000
         Initial number of seeds (N₀ ≫ n_segments).
     n_iterations : int, default 2
-        Maximum number of IFT iterations (Ω). 2 is optimal per Belém 2023.
+        Maximum number of IFT iterations (Ω).
+
+        Two is what Belém et al. 2023 use, but read their reason before
+        trusting the default: it is a *speed* argument, and one specific to
+        the differential IFT they optimise, where removing many seeds at
+        once creates inconsistencies the differential machinery must repair.
+        This implementation re-runs the full IFT each iteration and has no
+        such machinery, so that argument does not transfer.
+
+        The paper's own curve makes Ω largely inert here. With N₀=3000 and
+        n_segments=200 the number of effective iterations is
+        ⌈(Ω−1)(1 − log_N₀ Nf)⌉ + 1, so Ω=3 is bit-identical to Ω=2, and Ω=5
+        performs two removal steps rather than five. Measured on
+        `SNP_21_2020_1.tif`, the default is the *worst* of the values tried:
+        mean within-superpixel variance 156.25 at Ω=2 against 139.79 at Ω=5,
+        largest superpixel 13,880 px against 8,360. Raise it if delineation
+        matters more to you than the extra IFT passes.
     saliency : np.ndarray, optional, shape (rows, cols)
         Object saliency map [0, 1]. E.g. normalized CHM for forestry.
         Seeds near saliency borders are favored during removal.

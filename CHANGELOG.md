@@ -4,18 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **The `n_iterations` documentation was wrong, and the code was not.** It
+  claimed "2 is optimal per Belém 2023". Having now read the paper, Ω=2 is
+  their *speed* setting, and the argument is specific to the differential IFT
+  they optimise, where removing many seeds at once creates inconsistencies to
+  repair. This implementation re-runs the full IFT each iteration, so that
+  argument does not transfer, and the measured delineation at Ω=2 is the worst
+  of the values tried. The docstring now says so.
+
+### Verified against the source paper
+Belém et al. 2023 (doi:10.1007/s10851-023-01156-9) was checked line by line
+against this implementation. Four of the five components are faithful: the
+`fmax` path-cost, the `wroot` arc-cost `‖F(R(x)) − F(y)‖₂`, the relevance
+criterion `vminsc(s) = vsize(s)·∇⁻F(Ts)`, and the object penalisation
+`pobj(s) = max{O(Ts), ∇⁺O(Ts)}` with `pnone = 1` when no saliency map is given.
+
+The seed-preservation curve is also faithful, which retracts a defect reported
+here earlier. The paper's curve really is `M(i) = max{N₀^(1−i/(Ω−1)), Nf}`,
+with `i` starting at 1 — which is what `t = (iteration + 1)/(Ω − 1)` computes.
+The exponent genuinely does not depend on `n_segments`; that is the authors'
+design, not a porting error, and the paper states the resulting iteration count
+as `⌈(Ω−1)(1 − log_N₀ Nf)⌉ + 1`, which this implementation reproduces exactly
+for Ω = 2, 5 and 10.
+
 ### Known issues
-- **SICLE's seed-removal curve ignores `n_segments`.** `m = max(int(N0**(1-t)),
-  Nf)` decays towards 1 rather than towards the target, so the exponent never
-  sees `n_segments`. Consequences, measured on `SNP_21_2020_1.tif`:
-  `n_iterations=3` is bit-identical to `2`; `n_iterations=5` performs two
-  removal steps rather than five; and the default `n_iterations=2` is the
-  *worst* setting of those tried (within-superpixel variance 156.25 against
-  139.79 at 5, largest superpixel 13,880 px against 8,360). Left unfixed
-  deliberately: the replacement curve has to come from Belém et al. 2023
-  (doi:10.1007/s10851-023-01156-9) rather than be guessed, and a geometric
-  interpolation `N0*(Nf/N0)**(i/(omega-1))` is a plausible reconstruction, not
-  the paper.
+- **Seed relevance uses a 4-neighbourhood where the IFT uses 8.** The paper
+  defines tree adjacency `A(Ts)` over the same arc set `A` the IFT grows on, so
+  the two should match. Switching relevance to 8 changes 10.6% of the partition
+  at `n_segments=200` and 6.6% at 800 — measured label-invariantly, by
+  best-overlap matching rather than by comparing superpixel ids, which
+  renumber wholesale and would report 98%. Not changed yet: it is a behaviour
+  change and wants a deliberate release.
 
 ## [0.3.0] — 2026-07-21
 
