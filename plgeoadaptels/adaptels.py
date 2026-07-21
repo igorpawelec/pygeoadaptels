@@ -70,6 +70,36 @@ def _validate_params(threshold, distance):
     return DISTANCE_MAP[distance]
 
 
+def _validate_normalized_threshold(threshold, distance, n_layers,
+                                   minkowski_p):
+    """Reject a threshold that no pair of pixels can reach once normalized.
+
+    Called only when normalize=True, and only after the layer count is
+    known. normalize rescales every band to [0, 1], which caps the largest
+    possible minkowski distance at n_layers**(1/p) — about 1.73 for three
+    bands at p=2. The package default of 60 is scaled for raw data, so
+    normalize=True at the default merged the whole raster in silence: on
+    the test scene 2792 adaptels became 1, with no error and no warning.
+
+    Same failure as an out-of-scale 'cosine' threshold, so it fails the
+    same way — loudly, naming the ceiling it cannot cross.
+    """
+    if distance != "minkowski":
+        return  # cosine and angular are bounded by 1 regardless; checked above
+    ceiling = float(n_layers) ** (1.0 / float(minkowski_p))
+    if threshold >= ceiling:
+        raise ValueError(
+            f"threshold={threshold} cannot be reached with normalize=True. "
+            f"Normalizing puts every band in [0, 1], so the largest possible "
+            f"minkowski distance across {n_layers} band(s) at p={minkowski_p} "
+            f"is {ceiling:.4f}. A threshold at or above that merges the "
+            f"entire raster into one adaptel. Rescale the threshold to the "
+            f"normalized range — on 3-band imagery 0.1-0.5 is a working "
+            f"span, and the right value depends on the scene — or drop "
+            f"normalize and keep the raw-data threshold."
+        )
+
+
 def enforce_connectivity(labels, min_size=0):
     """
     Split any adaptel that is not a single connected region.
@@ -255,6 +285,8 @@ def create_adaptels(input_files, output_file=None,
     
     # Normalize if requested
     if normalize:
+        _validate_normalized_threshold(threshold, distance, n_layers,
+                                       minkowski_p)
         if not quiet and not use_tqdm:
             print("Normalizing data...", end=" ", flush=True)
         layers = normalize_layers(layers, mask)
@@ -344,8 +376,10 @@ def adaptels_from_array(data, mask=None, threshold=60.0,
         mask_flat = mask.ravel().astype(np.uint8)
     
     if normalize:
+        _validate_normalized_threshold(threshold, distance, n_layers,
+                                       minkowski_p)
         layers = normalize_layers(layers, mask_flat)
-    
+
     distance_type = _validate_params(threshold, distance)
     connectivity = 8 if queen_topology else 4
     

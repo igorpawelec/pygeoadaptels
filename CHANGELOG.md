@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **SICLE dropped pixels on large rasters.** The IFT priority queue was
+  capped at 100,000 entries, and an insert past the cap was skipped — but
+  `cost_out` and `labels_out` were written *before* the capacity check, so
+  the pixel counted as conquered while never entering the queue. Its subtree
+  stopped growing and the pixels behind it kept label `-1`. At 700x700 that
+  lost 7 valid pixels, at 900x900 it lost 93, and the loss scales with the
+  raster. The heap now grows on demand. Verified bit-identical to the old
+  output wherever the cap was not reached, including `SNP_21_2020_1.tif`.
+- **A NaN in the SICLE saliency map hijacked the seed ranking.** Relevance
+  was sorted with `argsort(...)[::-1]`; NaN sorts to the end ascending, so
+  reversing moved every NaN-relevance seed to the *head* of the ranking,
+  ahead of every seed whose relevance was real. One NaN band produced a
+  superpixel covering 139,820 of 160,000 pixels, with no exception and no
+  warning — and nodata in a saliency raster is ordinary, a CHM has it.
+  `saliency` is now validated for shape and for NaN over pixels the mask
+  calls valid, and the ranking puts NaN last regardless.
+- **`normalize=True` merged the whole raster at the default threshold.**
+  Normalizing rescales every band to [0, 1], which caps the largest possible
+  minkowski distance at `n_layers**(1/p)` — about 1.73 for three bands at
+  p=2 — while the package default of 60 is scaled for raw data. On the test
+  scene 2,792 adaptels became exactly 1, silently. This is the same failure
+  as an out-of-scale `cosine` threshold, which already raised; it now fails
+  the same way, naming the ceiling it cannot cross.
+- **`n_oversampling` below `n_segments` was corrected in silence.** SICLE
+  only removes seeds, so the target is unreachable from there and the value
+  was replaced by `n_segments * 10` with nothing in the output to say so.
+  It still corrects, but warns.
 - **`cosine` distance was inverted.** The kernel returned cosine *similarity*
   where the caller compares against a growth threshold: 1.0 for identical
   spectra, falling towards 0 as they diverged. The threshold therefore worked
@@ -34,7 +61,22 @@ All notable changes to this project will be documented in this file.
   `main()` without passing its return value to `sys.exit()`, so a failed run
   reported success and any script checking `$?` missed it.
 
+### Removed
+- **Dead label remapping in the SICLE seed-removal loop.** Between
+  iterations it rewrote `labels` and `cost` for every pixel, but
+  `_ift_fmax` reinitialises both on entry, so the work was discarded
+  before it could be read: a full O(size) pass per iteration that changed
+  nothing. Confirmed by feeding `_ift_fmax` deliberately corrupted arrays
+  and getting bit-identical output.
+
 ### Changed
+- **SICLE labels are documented as 8-connected, and must not be passed to
+  `enforce_connectivity()`.** That helper tests 4-connectivity, matching the
+  adaptels grower's default neighbourhood, while SICLE's IFT expands to all
+  8 neighbours. Measured on both a random scene and `SNP_21_2020_1.tif`,
+  SICLE labels are exactly 8-connected — one component per label — and
+  around 20x fragmented under a 4-connected reading, so the helper reports
+  a defect that is not there.
 - **`plgeoadaptels/test_adaptels.py` moved to `examples/quickstart.py`.** It
   was not a test but a cell-based scratch script with hardcoded paths to
   `D:\Projects\Test\`. Being named `test_*` inside the package, it broke a

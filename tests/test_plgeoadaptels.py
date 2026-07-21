@@ -171,9 +171,11 @@ class TestSicleFromArray:
     def test_oversampling_auto(self):
         from plgeoadaptels.sicle import sicle_from_array
         data = np.random.rand(3, 30, 30).astype(np.float64)
-        # n_oversampling < n_segments should auto-correct
-        labels, n = sicle_from_array(data, n_segments=10,
-                                     n_oversampling=5, quiet=True)
+        # n_oversampling < n_segments auto-corrects, but says so: SICLE only
+        # removes seeds, so the caller's N0 is silently discarded otherwise.
+        with pytest.warns(UserWarning, match="n_oversampling"):
+            labels, n = sicle_from_array(data, n_segments=10,
+                                         n_oversampling=5, quiet=True)
         assert n == 10
 
 
@@ -360,3 +362,175 @@ class TestEnforceConnectivity:
         labels, _ = segmented
         with pytest.raises(ValueError, match="min_size"):
             enforce_connectivity(labels, min_size=-1)
+
+
+# ── Regression tests ─────────────────────────────────────────────────
+#
+# Every test below covers a bug that the suite above could not have
+# caught, because it ran only on np.random.rand of at most 100x100 and
+# never asserted anything about the shape of the result. The bugs were
+# found by measuring on test_data/SNP_21_2020_1.tif; the reproductions
+# here are synthetic so they need no data file.
+
+
+class TestSicleHeapCapacity:
+    """The IFT priority queue was capped at 100000 entries.
+
+    An insert past the cap was skipped, but cost_out and labels_out had
+    already been written a few lines earlier, so the pixel counted as
+    conquered while never entering the queue. Its subtree stopped growing
+    and the pixels behind it kept label -1. The cap was never hit on a
+    small raster, which is why the original suite passed: at 700x700 the
+    old code dropped 7 valid pixels, at 900x900 it dropped 93.
+    """
+
+    def test_no_valid_pixel_is_left_unlabelled(self):
+        from plgeoadaptels.sicle import sicle_from_array
+        # Fully valid raster, so every pixel is reachable from some seed
+        # and any -1 in the output is a lost pixel, not nodata.
+        data = np.random.default_rng(7).random((3, 700, 700))
+        labels, n = sicle_from_array(data, n_segments=200, quiet=True)
+        assert (labels >= 0).all(), (
+            f"{int((labels < 0).sum())} valid pixels came back unlabelled"
+        )
+        assert n == 200
+
+    def test_more_seeds_than_the_old_cap(self):
+        from plgeoadaptels.sicle import sicle_from_array
+        # 120000 seeds is above the old fixed 100000 heap slots, so the
+        # seeding loop itself used to overflow and 20000 seeds never
+        # propagated at all.
+        data = np.random.default_rng(0).random((3, 400, 400))
+        labels, n = sicle_from_array(data, n_segments=200,
+                                     n_oversampling=120000, quiet=True)
+        assert (labels >= 0).all()
+        assert len(np.unique(labels)) == 200
+
+
+class TestSicleSaliencyValidation:
+    """NaN in the saliency map used to hijack the seed ranking.
+
+    Relevance is sorted with argsort(...)[::-1]. NaN sorts to the end
+    ascending, so reversing put NaN-relevance seeds at the *head* of the
+    ranking — ahead of every seed whose relevance was real. On a 400x400
+    scene one NaN band produced a superpixel covering 139820 of 160000
+    pixels, with no exception and no warning.
+    """
+
+    def test_nan_over_valid_pixels_is_rejected(self):
+        from plgeoadaptels.sicle import sicle_from_array
+        data = np.random.default_rng(0).random((3, 60, 60))
+        sal = np.random.default_rng(3).random((60, 60))
+        sal[:10, :] = np.nan
+        with pytest.raises(ValueError, match="NaN"):
+            sicle_from_array(data, n_segments=20, saliency=sal, quiet=True)
+
+    def test_nan_under_nodata_is_fine(self):
+        """NaN where the mask already says nodata never reaches relevance."""
+        from plgeoadaptels.sicle import sicle_from_array
+        data = np.random.default_rng(0).random((3, 60, 60))
+        mask = np.zeros((60, 60), dtype=np.uint8)
+        mask[:10, :] = 1
+        sal = np.random.default_rng(3).random((60, 60))
+        sal[:10, :] = np.nan          # exactly the masked rows
+        labels, n = sicle_from_array(data, mask=mask, n_segments=20,
+                                     saliency=sal, quiet=True)
+        assert n == 20
+        assert (labels[:10, :] < 0).all()
+        assert (labels[10:, :] >= 0).all()
+
+    def test_wrong_shape_is_rejected(self):
+        from plgeoadaptels.sicle import sicle_from_array
+        data = np.random.default_rng(0).random((3, 60, 60))
+        with pytest.raises(ValueError, match="shape"):
+            sicle_from_array(data, n_segments=20,
+                             saliency=np.zeros((30, 30)), quiet=True)
+
+    def test_clean_saliency_still_drives_the_result(self):
+        from plgeoadaptels.sicle import sicle_from_array
+        data = np.random.default_rng(0).random((3, 60, 60))
+        sal = np.zeros((60, 60))
+        sal[20:40, 20:40] = 1.0
+        with_sal, n1 = sicle_from_array(data, n_segments=20,
+                                        saliency=sal, quiet=True)
+        without, n2 = sicle_from_array(data, n_segments=20, quiet=True)
+        assert n1 == n2 == 20
+        assert not np.array_equal(with_sal, without)
+
+
+class TestSicleDeterminism:
+    """Seed removal drops the label remap; the result must not move.
+
+    _ift_fmax reinitialises labels and cost on entry, so the remap that
+    used to run between iterations was overwritten before it was read.
+    Removing it is only safe if the output is unchanged and reproducible.
+    """
+
+    def test_repeated_runs_are_identical(self):
+        from plgeoadaptels.sicle import sicle_from_array
+        data = np.random.default_rng(11).random((3, 120, 120))
+        a, na = sicle_from_array(data, n_segments=40, quiet=True)
+        b, nb = sicle_from_array(data, n_segments=40, quiet=True)
+        assert na == nb
+        np.testing.assert_array_equal(a, b)
+
+    def test_every_label_is_a_single_connected_region(self):
+        """SICLE grows over an 8-adjacency, so labels must be 8-connected.
+
+        Deliberately not enforce_connectivity(): that checks 4-connectivity,
+        matching the adaptels grower's default neighbourhood, and SICLE's
+        IFT expands to all 8 neighbours. Measured on both a random scene and
+        SNP_21_2020_1.tif, SICLE labels are exactly 8-connected (one
+        component each) and roughly 20x fragmented under a 4-connected
+        reading — so the 4-connected tool reports a defect that is not there.
+        """
+        ndimage = pytest.importorskip("scipy.ndimage")
+        from plgeoadaptels.sicle import sicle_from_array
+        data = np.random.default_rng(11).random((3, 120, 120))
+        labels, n = sicle_from_array(data, n_segments=40, quiet=True)
+        eight = np.ones((3, 3), dtype=bool)
+        split = [lab for lab in np.unique(labels)
+                 if ndimage.label(labels == lab, structure=eight)[1] > 1]
+        assert not split, f"{len(split)} superpixels are not 8-connected"
+        assert len(np.unique(labels)) == n
+
+
+class TestNormalizedThreshold:
+    """normalize=True rescales bands to [0, 1] but the threshold did not.
+
+    The package default of 60 is scaled for raw data. Once normalized, the
+    largest minkowski distance possible is n_layers**(1/p) — 1.0 for one
+    band, about 1.73 for three at p=2 — so the default merged the entire
+    raster. On the test scene 2792 adaptels became exactly 1, silently.
+    Same failure mode as an out-of-scale cosine threshold, which already
+    raised; this one did not.
+    """
+
+    def test_default_threshold_is_rejected_when_normalized(self, split_data):
+        from plgeoadaptels import adaptels_from_array
+        with pytest.raises(ValueError, match="normalize"):
+            adaptels_from_array(split_data, threshold=60.0, normalize=True)
+
+    def test_error_names_the_ceiling(self):
+        from plgeoadaptels import adaptels_from_array
+        data = np.random.default_rng(0).random((3, 40, 40))
+        with pytest.raises(ValueError, match=r"1\.7"):
+            adaptels_from_array(data, threshold=60.0, normalize=True)
+
+    def test_threshold_on_the_normalized_scale_works(self, split_data):
+        from plgeoadaptels import adaptels_from_array
+        labels, n = adaptels_from_array(split_data, threshold=0.5,
+                                        normalize=True)
+        assert n >= 2, "a two-valued raster must not collapse to one adaptel"
+
+    def test_unnormalized_default_is_untouched(self, split_data):
+        from plgeoadaptels import adaptels_from_array
+        labels, n = adaptels_from_array(split_data, threshold=60.0)
+        assert n >= 2
+
+    def test_bounded_metrics_are_unaffected(self, split_data):
+        """cosine is capped at 1 either way, so normalize changes nothing."""
+        from plgeoadaptels import adaptels_from_array
+        labels, n = adaptels_from_array(split_data, threshold=0.03,
+                                        distance='cosine', normalize=True)
+        assert n >= 1

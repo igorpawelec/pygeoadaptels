@@ -11,6 +11,8 @@ Pure Python + Numba reimplementation for geospatial raster data.
 Reuses min-heap from plgeoadaptels.core.
 """
 
+import warnings
+
 import numpy as np
 from numba import njit, int32, int64, float64
 from .core import heap_insert, heap_extract
@@ -19,6 +21,24 @@ from .core import heap_insert, heap_extract
 # ══════════════════════════════════════════════════════════════════════
 #  IFT kernel — Image Foresting Transform with fmax path-cost
 # ══════════════════════════════════════════════════════════════════════
+
+@njit(cache=True)
+def _heap_grow(h_dist, h_x, h_y, h_idx):
+    """Double the heap arrays, preserving their contents.
+
+    Returns the four replacements; the caller must rebind all of them.
+    """
+    cap = h_dist.shape[0]
+    n_dist = np.empty(cap * 2, dtype=np.float64)
+    n_x = np.empty(cap * 2, dtype=np.int32)
+    n_y = np.empty(cap * 2, dtype=np.int32)
+    n_idx = np.empty(cap * 2, dtype=np.int64)
+    for i in range(cap):
+        n_dist[i] = h_dist[i]
+        n_x[i] = h_x[i]
+        n_y[i] = h_y[i]
+        n_idx[i] = h_idx[i]
+    return n_dist, n_x, n_y, n_idx
 
 @njit(cache=True)
 def _ift_fmax(layers, n_layers, mask, cols, rows, seeds, n_seeds,
@@ -52,8 +72,18 @@ def _ift_fmax(layers, n_layers, mask, cols, rows, seeds, n_seeds,
         for l in range(n_layers):
             seed_features[si, l] = layers[l, idx]
 
-    # Heap — sized for boundary pixels, not all pixels
-    heap_alloc = max(int64(100000), int64(8) * int64(int(size ** 0.5)))
+    # Heap — grows on demand rather than being capped.
+    #
+    # It used to be a fixed max(100000, 8*sqrt(size)) slots, and an insert
+    # past that was skipped silently. cost_out and labels_out were written
+    # *before* the capacity check, so the pixel counted as conquered while
+    # never entering the queue: its subtree stopped growing and the pixels
+    # behind it kept label -1. On a 1200x1200 raster that left 83 valid
+    # pixels unlabelled, and the loss scales with the raster. Growing costs
+    # an amortised copy; losing pixels costs a wrong segmentation.
+    heap_alloc = int64(4096)
+    if heap_alloc < n_seeds * int64(2):
+        heap_alloc = n_seeds * int64(2)
     h_dist = np.empty(heap_alloc + 1, dtype=np.float64)
     h_x = np.empty(heap_alloc + 1, dtype=np.int32)
     h_y = np.empty(heap_alloc + 1, dtype=np.int32)
@@ -68,9 +98,10 @@ def _ift_fmax(layers, n_layers, mask, cols, rows, seeds, n_seeds,
             labels_out[idx] = int32(si)
             col = int32(idx % cols)
             row = int32(idx // cols)
-            if h_size < heap_alloc:
-                h_size = heap_insert(h_dist, h_x, h_y, h_idx, h_size,
-                                     0.0, col, row, idx)
+            if h_size + int64(2) > int64(h_dist.shape[0]):
+                h_dist, h_x, h_y, h_idx = _heap_grow(h_dist, h_x, h_y, h_idx)
+            h_size = heap_insert(h_dist, h_x, h_y, h_idx, h_size,
+                                 0.0, col, row, idx)
 
     # 8-adjacency shifts
     dx = np.array([-1, 0, 1, -1, 1, -1, 0, 1], dtype=np.int32)
@@ -110,9 +141,11 @@ def _ift_fmax(layers, n_layers, mask, cols, rows, seeds, n_seeds,
             if new_cost < cost_out[nidx]:
                 cost_out[nidx] = new_cost
                 labels_out[nidx] = seed_label
-                if h_size < heap_alloc:
-                    h_size = heap_insert(h_dist, h_x, h_y, h_idx, h_size,
-                                         new_cost, nx, ny, nidx)
+                if h_size + int64(2) > int64(h_dist.shape[0]):
+                    h_dist, h_x, h_y, h_idx = _heap_grow(
+                        h_dist, h_x, h_y, h_idx)
+                h_size = heap_insert(h_dist, h_x, h_y, h_idx, h_size,
+                                     new_cost, nx, ny, nidx)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -287,30 +320,24 @@ def _run_sicle(layers, n_layers, mask, cols, rows,
         m_keep = max(int(n_oversampling ** (1.0 - t)), n_segments)
         m_keep = min(m_keep, len(seeds))
 
-        # Keep top m_keep seeds by relevance
-        order = np.argsort(relevance)[::-1]  # descending
-        keep_mask = order[:m_keep]
+        # Keep the m_keep most relevant seeds.
+        #
+        # Rank NaN last, explicitly. np.argsort puts NaN at the end of an
+        # ascending sort, so reversing for "descending" moved every
+        # NaN-relevance seed to the *head* of the ranking: a seed whose
+        # relevance could not be computed outranked every seed that could.
+        # One NaN in the saliency map was enough — it produced a superpixel
+        # of 73064 pixels against a median of 38 on the test scene.
+        rank = np.where(np.isnan(relevance), -np.inf, relevance)
+        order = np.argsort(rank)[::-1]  # descending
+        seeds = seeds[order[:m_keep]]
 
-        # Build new seed array — remap labels
-        new_seeds = np.empty(m_keep, dtype=np.int64)
-        old_to_new = np.full(len(seeds), int32(-1), dtype=np.int32)
-        for ni in range(m_keep):
-            old_idx = keep_mask[ni]
-            new_seeds[ni] = seeds[old_idx]
-            old_to_new[old_idx] = int32(ni)
-
-        seeds = new_seeds
-
-        # Remap labels for removed seeds (they'll be reconquered)
-        for i in range(size):
-            lab = labels[i]
-            if lab >= 0:
-                new_lab = old_to_new[lab]
-                if new_lab < 0:
-                    labels[i] = int32(-1)
-                    cost[i] = 1e30
-                else:
-                    labels[i] = new_lab
+        # Labels are deliberately not remapped here. _ift_fmax reinitialises
+        # labels and cost for every pixel on entry, so whatever is written
+        # between iterations is discarded before it can be read. The remap
+        # that used to sit here ran a full O(size) pass per iteration and
+        # changed nothing: feeding _ift_fmax deliberately corrupted arrays
+        # returns bit-identical output.
 
         if not quiet:
             print(f"  Iteration {iteration + 1}/{omega}: "
@@ -347,13 +374,20 @@ def sicle_from_array(data, mask=None, n_segments=200,
     saliency : np.ndarray, optional, shape (rows, cols)
         Object saliency map [0, 1]. E.g. normalized CHM for forestry.
         Seeds near saliency borders are favored during removal.
+        Must not be NaN anywhere the mask calls the pixel valid — fill
+        nodata with 0 ("no object here") or extend the mask. Raises
+        otherwise, because NaN silently corrupts the seed ranking.
     quiet : bool, default False
         Suppress progress messages.
 
     Returns
     -------
     labels : np.ndarray, shape (rows, cols), dtype int32
-        Superpixel labels (0-based).
+        Superpixel labels (0-based). Every label is a single 8-connected
+        region. Do not pass these to enforce_connectivity(): it tests
+        4-connectivity, which is the adaptels grower's default
+        neighbourhood, and it will split each SICLE superpixel into
+        roughly twenty pieces that were never disconnected.
     n_superpixels : int
         Number of superpixels produced.
 
@@ -385,10 +419,44 @@ def sicle_from_array(data, mask=None, n_segments=200,
         for l in range(n_layers):
             mask_flat[np.isnan(layers[l])] = 1
 
+    # Validate saliency before it can poison the seed ranking. A NaN here
+    # does not raise anywhere downstream: it flows into the tree mean, into
+    # the relevance, and NaN-relevance seeds used to sort to the front of
+    # the "most relevant" list. Nodata in a saliency raster is ordinary —
+    # a CHM has it — so say what to do about it rather than returning a
+    # plausible-looking segmentation built on it.
+    if saliency is not None:
+        saliency = np.asarray(saliency, dtype=np.float64)
+        if saliency.shape != (rows, cols):
+            raise ValueError(
+                f"saliency must be shaped {(rows, cols)} to match the "
+                f"raster, got {saliency.shape}."
+            )
+        bad = np.isnan(saliency.ravel()) & (mask_flat == 0)
+        if bad.any():
+            raise ValueError(
+                f"saliency contains NaN at {int(bad.sum())} pixel(s) that "
+                f"the raster mask treats as valid. Fill them (0 means 'no "
+                f"object here') or extend the mask to cover them. Left as "
+                f"NaN they propagate into the seed relevance, where they "
+                f"outrank every real seed and collapse the result into a "
+                f"few huge superpixels."
+            )
+
     # Validate n_segments
     if n_segments < 1:
         raise ValueError(f"n_segments must be ≥ 1, got {n_segments}")
     if n_oversampling < n_segments:
+        # SICLE only ever removes seeds, so starting below the target cannot
+        # reach it. Correcting is right, doing it silently is not: the
+        # caller's chosen N0 is gone and nothing in the output says so.
+        warnings.warn(
+            f"n_oversampling={n_oversampling} is below n_segments="
+            f"{n_segments}. SICLE removes seeds, it never adds them, so the "
+            f"target is unreachable from there; raising it to "
+            f"{n_segments * 10}.",
+            stacklevel=2,
+        )
         n_oversampling = n_segments * 10
 
     labels, n_sp = _run_sicle(
@@ -419,7 +487,9 @@ def create_sicle(input_files, output_file=None,
     n_iterations : int, default 2
         Maximum IFT iterations.
     saliency_file : str, optional
-        Path to GeoTIFF saliency map (single band, [0,1]).
+        Path to GeoTIFF saliency map (single band). Rescaled to [0, 1]
+        here. Nodata read as NaN is rejected downstream if it lands on a
+        valid raster pixel — fill it with 0 first.
     quiet : bool, default False
         Suppress progress messages.
 
