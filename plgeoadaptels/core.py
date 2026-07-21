@@ -135,6 +135,40 @@ DY = np.array([0, -1, 0, 1, -1, -1, 1, 1], dtype=np.int32)
 
 
 # ==========================================================================
+# Growable buffers
+# ==========================================================================
+
+@njit(cache=True)
+def _seeds_grow(sx, sy, sidx):
+    """Double the seed arrays, preserving contents. Rebind all three."""
+    cap = sx.shape[0]
+    out_x = np.empty(cap * 2, dtype=np.int32)
+    out_y = np.empty(cap * 2, dtype=np.int32)
+    out_i = np.empty(cap * 2, dtype=np.int64)
+    for i in range(cap):
+        out_x[i] = sx[i]
+        out_y[i] = sy[i]
+        out_i[i] = sidx[i]
+    return out_x, out_y, out_i
+
+
+@njit(cache=True)
+def _heap_grow(hd, hx, hy, hi):
+    """Double the heap arrays, preserving contents. Rebind all four."""
+    cap = hd.shape[0]
+    out_d = np.empty(cap * 2, dtype=np.float64)
+    out_x = np.empty(cap * 2, dtype=np.int32)
+    out_y = np.empty(cap * 2, dtype=np.int32)
+    out_i = np.empty(cap * 2, dtype=np.int64)
+    for i in range(cap):
+        out_d[i] = hd[i]
+        out_x[i] = hx[i]
+        out_y[i] = hy[i]
+        out_i[i] = hi[i]
+    return out_d, out_x, out_y, out_i
+
+
+# ==========================================================================
 # Main adaptel creation (mirrors generate.c)
 # ==========================================================================
 
@@ -172,20 +206,34 @@ def _create_adaptels(layers, n_layers, mask, cols, rows,
     dIdx[6] = 1 + int64(cols)
     dIdx[7] = -1 + int64(cols)
     
-    # Seeds arrays (mirrors SEEDS struct)
-    # Allocated at sqrt(size)*16 — sufficient for typical adaptel growth.
-    # Overflow is handled: if n_seeds >= seeds_alloc, seed is silently dropped.
-    seeds_alloc = max(int64(100000), int64(16) * int64(int(size ** 0.5)))
+    # Seeds arrays (mirrors SEEDS struct), grown on demand.
+    #
+    # This was capped at max(100000, 16*sqrt(size)) and a seed past the cap
+    # was dropped in silence. The sqrt term never wins for a real raster, so
+    # the cap was a flat 100000 — reached exactly on a 1200x1200 scene, where
+    # 9278 seeds were discarded, and already at 91% of it on a 400x400 scene
+    # at threshold 20. Pixels were not lost, because the outer scan picks the
+    # region up later as a fresh start, but the segmentation changed: 27% of
+    # the partition differed from the uncapped result, measured by
+    # best-overlap matching rather than by comparing ids, which renumber and
+    # would report 99%. More than a quarter of the output depended on an
+    # arbitrary constant instead of on the data.
+    seeds_alloc = int64(4096)
     seeds_x = np.empty(seeds_alloc, dtype=np.int32)
     seeds_y = np.empty(seeds_alloc, dtype=np.int32)
     seeds_idx = np.empty(seeds_alloc, dtype=np.int64)
     n_seeds = int64(0)
-    
-    # Heap arrays (mirrors MINLIST struct)
-    # Heap holds boundary pixels of the CURRENT adaptel only.
-    # Max heap size ≈ perimeter of largest adaptel ≈ 4*sqrt(area).
-    # sqrt(size)*8 is a safe upper bound with margin.
-    heap_alloc = max(int64(100000), int64(8) * int64(int(size ** 0.5)))
+
+    # Heap arrays (mirrors MINLIST struct), also grown on demand.
+    #
+    # The heap holds the boundary of the *current* adaptel only, so it stays
+    # small: the peak measured over 400x400 and 1200x1200 scenes at two
+    # thresholds was 128 slots against the old cap of 100000, and the
+    # overflow branch never fired. This is precaution rather than a fix —
+    # but the old code wrote distances and labels *before* checking capacity,
+    # so an overflow would have marked a pixel conquered without ever
+    # letting it propagate, which is the failure that did occur in SICLE.
+    heap_alloc = int64(4096)
     h_dist = np.empty(heap_alloc + 1, dtype=np.float64)
     h_x = np.empty(heap_alloc + 1, dtype=np.int32)
     h_y = np.empty(heap_alloc + 1, dtype=np.int32)
@@ -283,18 +331,22 @@ def _create_adaptels(layers, n_layers, mask, cols, rows,
                                         cumul_sum[l] += layers[l, nidx]
                                     superpixel_size += 1
                                     
-                                    if h_size < heap_alloc:
-                                        h_size = heap_insert(
-                                            h_dist, h_x, h_y, h_idx, h_size,
-                                            distances[nidx], nx, ny, nidx)
+                                    if h_size + int64(2) > int64(h_dist.shape[0]):
+                                        h_dist, h_x, h_y, h_idx = _heap_grow(
+                                            h_dist, h_x, h_y, h_idx)
+                                    h_size = heap_insert(
+                                        h_dist, h_x, h_y, h_idx, h_size,
+                                        distances[nidx], nx, ny, nidx)
                         else:
                             # Beyond threshold => new seed
                             if labels[nidx] < 0:
-                                if n_seeds < seeds_alloc:
-                                    seeds_x[n_seeds] = nx
-                                    seeds_y[n_seeds] = ny
-                                    seeds_idx[n_seeds] = nidx
-                                    n_seeds += 1
+                                if n_seeds >= int64(seeds_x.shape[0]):
+                                    seeds_x, seeds_y, seeds_idx = _seeds_grow(
+                                        seeds_x, seeds_y, seeds_idx)
+                                seeds_x[n_seeds] = nx
+                                seeds_y[n_seeds] = ny
+                                seeds_idx[n_seeds] = nidx
+                                n_seeds += 1
                 
                 current_label += 1
             

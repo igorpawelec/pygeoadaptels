@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-21
+
+### Fixed
+- **The adaptel seed buffer discarded seeds in silence.** It was capped at
+  `max(100000, 16*sqrt(size))`, and the `sqrt` term never wins for a real
+  raster, so the cap was a flat 100,000. A 260x260 noise scene at threshold 30
+  already exceeds it and lost 702 seeds; a 1200x1200 scene lost 9,278; a
+  400x400 scene at threshold 20 sat at 91% of it. Pixels were not lost — the
+  outer scan picks the region up later as a fresh start — but the segmentation
+  changed, and nothing said so. Measured on the 1200x1200 case, **27% of the
+  partition** differed from the uncapped result, so more than a quarter of the
+  output depended on an arbitrary constant rather than on the data. The buffer
+  now doubles on demand, and the result is bit-identical to an uncapped run on
+  every scene tested.
+
+  Comparing adaptel ids directly reports 99% here, which is renumbering rather
+  than disagreement — the honest figure comes from best-overlap matching.
+
+### Changed
+- **The IFT heap in `_create_adaptels` also grows on demand.** This is
+  precaution, not a fix: the heap holds the boundary of the *current* adaptel
+  only, and the measured peak was 128 slots against the old cap of 100,000,
+  with the overflow branch never firing. But the old code wrote `distances`
+  and `labels` before checking capacity, which is exactly the shape of the
+  bug that did fire in SICLE, so the check is gone rather than merely unlikely
+  to matter.
+
+### Added
+- Tests for the seed buffer, on a scene that exceeds the old cap. Verified to
+  discriminate: the capped code produces 29,883 adaptels there and the growing
+  one 29,975.
+
 ## [0.4.0] — 2026-07-21
 
 ### Changed
@@ -56,15 +88,6 @@ The exponent genuinely does not depend on `n_segments`; that is the authors'
 design, not a porting error, and the paper states the resulting iteration count
 as `⌈(Ω−1)(1 − log_N₀ Nf)⌉ + 1`, which this implementation reproduces exactly
 for Ω = 2, 5 and 10.
-
-### Known issues
-- **Seed relevance uses a 4-neighbourhood where the IFT uses 8.** The paper
-  defines tree adjacency `A(Ts)` over the same arc set `A` the IFT grows on, so
-  the two should match. Switching relevance to 8 changes 10.6% of the partition
-  at `n_segments=200` and 6.6% at 800 — measured label-invariantly, by
-  best-overlap matching rather than by comparing superpixel ids, which
-  renumber wholesale and would report 98%. Not changed yet: it is a behaviour
-  change and wants a deliberate release.
 
 ## [0.3.0] — 2026-07-21
 

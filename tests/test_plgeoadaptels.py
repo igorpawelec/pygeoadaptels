@@ -591,3 +591,46 @@ class TestSicleRelevanceAdjacency:
         rel = _compute_seed_relevance(layers, 1, labels, mask, 4, 4, 1,
                                       np.empty(0, dtype=np.float64), False)
         assert rel[0] == 0.0
+
+
+class TestSeedBufferGrowth:
+    """The seed buffer must grow, not silently discard.
+
+    It was capped at max(100000, 16*sqrt(size)); the sqrt term never wins
+    for a real raster, so the cap was a flat 100000. A 260x260 noise scene
+    at threshold 30 already exceeds it and lost 702 seeds, and a 1200x1200
+    scene lost 9278. Pixels were not lost -- the outer scan picks the region
+    up later -- but the segmentation changed, by 27% of the partition on the
+    1200x1200 case, measured by best-overlap matching rather than by
+    comparing ids, which renumber and would report 99%.
+    """
+
+    @staticmethod
+    def _noise(n=260):
+        rng = np.random.default_rng(3)
+        return rng.integers(0, 256, (3, n, n)).astype(np.float64)
+
+    def test_scene_past_the_old_cap_is_unchanged_by_it(self):
+        from plgeoadaptels import adaptels_from_array
+        labels, n = adaptels_from_array(self._noise(), threshold=30.0)
+        # 29975 with a growing buffer; 29883 with the old flat cap of
+        # 100000, which discarded 702 seeds. A regression to any fixed cap
+        # at or below the peak moves this number.
+        assert n == 29975, (
+            f"expected 29975 adaptels, got {n} — the seed buffer may be "
+            f"capped again"
+        )
+        assert (labels >= 0).all()
+
+    def test_every_valid_pixel_is_labelled(self):
+        from plgeoadaptels import adaptels_from_array
+        labels, n = adaptels_from_array(self._noise(), threshold=30.0)
+        assert set(np.unique(labels)) == set(range(n))
+
+    def test_result_is_deterministic(self):
+        from plgeoadaptels import adaptels_from_array
+        d = self._noise()
+        a, na = adaptels_from_array(d, threshold=30.0)
+        b, nb = adaptels_from_array(d, threshold=30.0)
+        assert na == nb
+        np.testing.assert_array_equal(a, b)
