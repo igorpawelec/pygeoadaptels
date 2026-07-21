@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-21
+
+### Changed
+- **SICLE seed relevance now uses the 8-neighbourhood the IFT grows over, not
+  4.** Belém et al. 2023 define tree adjacency as
+  `A(Ts) = {Tt : ∃⟨x,y⟩ ∈ A, x ∈ Ts, y ∈ Tt}` over the same arc set the forest
+  uses; this scanned four neighbours while `_ift_fmax` expands to eight. The
+  defect that hid there: a tree touching its only neighbour diagonally was
+  found to have *no* neighbours, so its minimum contrast stayed at the
+  sentinel, collapsed to 0, and the seed was ranked least relevant and removed
+  first on no evidence at all.
+
+  **This is a fidelity fix, not a quality improvement, and the measurements say
+  so.** On `SNP_21_2020_1.tif` the change is essentially neutral: mean
+  within-superpixel variance 156.25 → 157.27 at `n_segments=200` and
+  57.74 → 57.72 at 800; largest superpixel 13,880 → 14,300 and 3,434 → 3,385;
+  size CV 2.63 → 2.56 and 1.46 → 1.44. It moves 10.6% of the partition at 200
+  and 6.6% at 800, measured label-invariantly by best-overlap matching —
+  comparing superpixel ids directly reports 98%, which is renumbering rather
+  than disagreement, and is the reason this is a minor version bump.
+
+  Re-run anything whose superpixel boundaries you depend on.
+
+### Added
+- Tests for the relevance neighbourhood, built on two trees that touch only at
+  a corner. Verified to discriminate: on the 4-neighbour code both score
+  relevance 0, on the 8-neighbour code both score `vsize × contrast` as the
+  paper specifies.
+
 ### Fixed
 - **The `n_iterations` documentation was wrong, and the code was not.** It
   claimed "2 is optimal per Belém 2023". Having now read the paper, Ω=2 is

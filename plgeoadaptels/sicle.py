@@ -201,8 +201,15 @@ def _compute_seed_relevance(layers, n_layers, labels, mask,
     min_contrast = np.full(n_seeds, 1e30, dtype=np.float64)
     max_sal_contrast = np.zeros(n_seeds, dtype=np.float64)
 
-    dx = np.array([-1, 0, 1, 0], dtype=np.int32)
-    dy = np.array([0, -1, 0, 1], dtype=np.int32)
+    # 8-adjacency, matching _ift_fmax. Belém et al. 2023 define tree
+    # adjacency as A(Ts) = {Tt : exists <x,y> in A, x in Ts, y in Tt} — the
+    # same arc set the forest grows over, not a second one. This scanned 4
+    # neighbours until 0.4.0, so a tree touching its only neighbour
+    # diagonally was found to have no neighbours at all: min_contrast stayed
+    # at the 1e30 sentinel, fell to 0 below, and the seed was ranked least
+    # relevant and removed first, on no evidence.
+    dx = np.array([-1, 0, 1, -1, 1, -1, 0, 1], dtype=np.int32)
+    dy = np.array([-1, -1, -1, 0, 0, 1, 1, 1], dtype=np.int32)
 
     for y in range(rows):
         for x in range(cols):
@@ -210,7 +217,7 @@ def _compute_seed_relevance(layers, n_layers, labels, mask,
             lab_s = labels[idx]
             if lab_s < 0:
                 continue
-            for k in range(4):
+            for k in range(8):
                 nx = x + dx[k]
                 ny = y + dy[k]
                 if nx < 0 or nx >= cols or ny < 0 or ny >= rows:

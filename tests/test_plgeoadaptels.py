@@ -534,3 +534,60 @@ class TestNormalizedThreshold:
         labels, n = adaptels_from_array(split_data, threshold=0.03,
                                         distance='cosine', normalize=True)
         assert n >= 1
+
+
+class TestSicleRelevanceAdjacency:
+    """Seed relevance must use the same neighbourhood the forest grows over.
+
+    Belem et al. 2023 define tree adjacency as A(Ts) = {Tt : exists <x,y> in
+    A} over the arc set A the IFT itself uses, which here is 8-connected.
+    Until 0.4.0 the relevance scan used 4, so a tree whose only neighbour
+    touched it diagonally was found to have no neighbours: its minimum
+    contrast stayed at the sentinel, collapsed to 0, and the seed was ranked
+    least relevant and removed first on no evidence.
+    """
+
+    @staticmethod
+    def _diagonal_pair():
+        """Two 2x2 trees in a 4x4 grid, touching only at one corner."""
+        labels = np.full(16, -1, dtype=np.int32)
+        for r, c in ((0, 0), (0, 1), (1, 0), (1, 1)):
+            labels[r * 4 + c] = 0
+        for r, c in ((2, 2), (2, 3), (3, 2), (3, 3)):
+            labels[r * 4 + c] = 1
+        layers = np.zeros((1, 16), dtype=np.float64)
+        layers[0, labels == 1] = 50.0          # a contrast worth finding
+        mask = np.zeros(16, dtype=np.uint8)
+        return layers, labels, mask
+
+    def test_diagonally_touching_trees_are_adjacent(self):
+        from plgeoadaptels.sicle import _compute_seed_relevance
+        layers, labels, mask = self._diagonal_pair()
+        rel = _compute_seed_relevance(layers, 1, labels, mask, 4, 4, 2,
+                                      np.empty(0, dtype=np.float64), False)
+        assert rel[0] > 0, (
+            "a tree touching its only neighbour diagonally was scored as "
+            "having no neighbours at all"
+        )
+        assert rel[1] > 0
+
+    def test_relevance_is_size_times_min_contrast(self):
+        """vminsc(s) = vsize(s) * min contrast, per the paper."""
+        from plgeoadaptels.sicle import _compute_seed_relevance
+        layers, labels, mask = self._diagonal_pair()
+        rel = _compute_seed_relevance(layers, 1, labels, mask, 4, 4, 2,
+                                      np.empty(0, dtype=np.float64), False)
+        # 4 of 8 labelled pixels each, contrast 50 between the two means.
+        assert abs(rel[0] - 0.5 * 50.0) < 1e-9
+        assert abs(rel[1] - 0.5 * 50.0) < 1e-9
+
+    def test_isolated_tree_scores_zero(self):
+        """With no neighbour at all the sentinel must not leak into the score."""
+        from plgeoadaptels.sicle import _compute_seed_relevance
+        labels = np.full(16, -1, dtype=np.int32)
+        labels[0] = 0
+        layers = np.zeros((1, 16), dtype=np.float64)
+        mask = np.zeros(16, dtype=np.uint8)
+        rel = _compute_seed_relevance(layers, 1, labels, mask, 4, 4, 1,
+                                      np.empty(0, dtype=np.float64), False)
+        assert rel[0] == 0.0
