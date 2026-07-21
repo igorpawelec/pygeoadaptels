@@ -8,8 +8,8 @@ authors:
     affiliation: "Kraków, Poland"
 repository-code: "https://github.com/igorpawelec/plgeoadaptels"
 license: GPL-3.0-or-later
-version: "0.2.1"
-date-released: "2026-03-04"
+version: "0.3.0"
+date-released: "2026-07-21"
 references:
   - type: article
     title: "Scale-Adaptive Superpixels"

@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Known issues
+- **SICLE's seed-removal curve ignores `n_segments`.** `m = max(int(N0**(1-t)),
+  Nf)` decays towards 1 rather than towards the target, so the exponent never
+  sees `n_segments`. Consequences, measured on `SNP_21_2020_1.tif`:
+  `n_iterations=3` is bit-identical to `2`; `n_iterations=5` performs two
+  removal steps rather than five; and the default `n_iterations=2` is the
+  *worst* setting of those tried (within-superpixel variance 156.25 against
+  139.79 at 5, largest superpixel 13,880 px against 8,360). Left unfixed
+  deliberately: the replacement curve has to come from Belém et al. 2023
+  (doi:10.1007/s10851-023-01156-9) rather than be guessed, and a geometric
+  interpolation `N0*(Nf/N0)**(i/(omega-1))` is a plausible reconstruction, not
+  the paper.
+
+## [0.3.0] — 2026-07-21
+
+A bug-fix release, but the version moves to 0.3.0 rather than 0.2.2 because
+several fixes change results: `cosine` returned a similarity where a distance
+was expected, `normalize=True` at the default threshold now raises instead of
+returning one adaptel, and a NaN saliency map now raises instead of returning a
+plausible-looking segmentation. Re-run anything whose numbers you rely on.
+
 ### Fixed
 - **SICLE dropped pixels on large rasters.** The IFT priority queue was
   capped at 100,000 entries, and an insert past the cap was skipped — but

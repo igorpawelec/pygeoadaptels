@@ -43,7 +43,7 @@ try:
     from importlib.metadata import version as _version
     __version__ = _version("plgeoadaptels")
 except Exception:
-    __version__ = "0.2.1"
+    __version__ = "0.3.0"
 
 __author__ = "Igor Pawelec"
 
