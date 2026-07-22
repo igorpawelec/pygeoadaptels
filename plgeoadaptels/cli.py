@@ -12,7 +12,8 @@ import sys
 from .adaptels import create_adaptels
 
 
-def main():
+def build_parser():
+    """The argument parser, exposed so that tests can inspect it."""
     parser = argparse.ArgumentParser(
         prog='plgeoadaptels',
         description='Scale-Adaptive Superpixels (Adaptels) for geospatial data'
@@ -36,7 +37,19 @@ def main():
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Quiet mode')
     
-    args = parser.parse_args()
+    return parser
+
+
+def main(argv=None):
+    """Entry point. Returns the process exit code.
+
+    `argv` defaults to sys.argv[1:], so the CLI can be driven from a test
+    without reaching into sys.argv. It had no such parameter until 0.7.1,
+    which is why the two defects recorded in the changelog for this file --
+    a traceback instead of a message, and a zero exit code on failure --
+    shipped without anything catching them.
+    """
+    args = build_parser().parse_args(argv)
 
     try:
         labels, n_adaptels = create_adaptels(

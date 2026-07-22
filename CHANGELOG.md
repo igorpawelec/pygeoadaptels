@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-07-22
+
+### Added
+- **`cli.build_parser()`, and `main()` now takes `argv`.** The CLI had no
+  tests, and it is where this package's only two shipped defects lived: a raw
+  traceback where a message belonged, and `python -m plgeoadaptels` returning
+  0 after a failure, so a script checking `$?` saw success. Both were fixed
+  in 0.3.0 with nothing to keep them fixed.
+
+  `main()` read `sys.argv` directly, so testing it meant monkeypatching. It
+  now accepts `argv`, defaulting to `sys.argv[1:]`, which is what pyHRG's CLI
+  already did.
+- Seven CLI tests, including a subprocess check that `python -m plgeoadaptels`
+  propagates the exit code. Verified to discriminate: removing the `sys.exit()`
+  from `__main__.py` makes it fail.
+
 ## [0.7.0] — 2026-07-22
 
 ### Changed

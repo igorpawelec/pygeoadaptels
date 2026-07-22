@@ -724,3 +724,76 @@ class TestSicleExplicitSeeds:
         rc = np.stack([np.arange(5), np.arange(5)], axis=1)
         with pytest.raises(ValueError, match="nodata"):
             sicle_from_array(d, mask=m, n_segments=2, seeds=rc, quiet=True)
+
+
+class TestCLI:
+    """The command line had no tests, and it is where two defects shipped.
+
+    Both are recorded in this package's own changelog: a raw
+    RasterioIOError traceback where a one-line message belonged, and
+    `python -m plgeoadaptels` returning 0 after a failure, so a script
+    checking $? saw success. Neither is visible from inside the library,
+    and nothing was watching them.
+
+    main() grew an `argv` parameter in 0.7.1 so that these can be driven
+    without monkeypatching sys.argv.
+    """
+
+    @staticmethod
+    def _raster():
+        import pathlib
+        p = pathlib.Path(__file__).resolve().parent.parent / "test_data" / \
+            "SNP_21_2020_1.tif"
+        if not p.exists():
+            pytest.skip("test_data/SNP_21_2020_1.tif not present")
+        return str(p)
+
+    def test_parser_is_named(self):
+        from plgeoadaptels.cli import build_parser
+        assert build_parser().prog == "plgeoadaptels"
+
+    def test_runs_and_writes(self, tmp_path):
+        from plgeoadaptels.cli import main
+        out = tmp_path / "out.tif"
+        rc = main(["-i", self._raster(), "-o", str(out), "-t", "60", "-q"])
+        assert rc == 0
+        assert out.exists()
+
+    def test_missing_input_returns_one(self, tmp_path):
+        """Exit code 1, not 0 -- the defect that shipped once already."""
+        from plgeoadaptels.cli import main
+        rc = main(["-i", str(tmp_path / "nope.tif"),
+                   "-o", str(tmp_path / "o.tif"), "-q"])
+        assert rc == 1
+
+    def test_missing_input_reports_one_line(self, tmp_path, capsys):
+        """And a message rather than a traceback -- the other one."""
+        from plgeoadaptels.cli import main
+        main(["-i", str(tmp_path / "nope.tif"),
+              "-o", str(tmp_path / "o.tif"), "-q"])
+        err = capsys.readouterr().err
+        assert "Traceback" not in err
+        assert "plgeoadaptels: error:" in err
+
+    def test_threshold_outside_the_metric_scale_returns_one(self, tmp_path):
+        """The guard added in 0.3.0 has to survive the trip through argparse."""
+        from plgeoadaptels.cli import main
+        rc = main(["-i", self._raster(), "-o", str(tmp_path / "o.tif"),
+                   "-t", "60", "-d", "cosine", "-q"])
+        assert rc == 1
+
+    def test_unknown_distance_is_rejected_by_the_parser(self, tmp_path):
+        from plgeoadaptels.cli import main
+        with pytest.raises(SystemExit):
+            main(["-i", self._raster(), "-o", str(tmp_path / "o.tif"),
+                  "-d", "cosin", "-q"])
+
+    def test_module_entry_point_exits_with_the_return_code(self, tmp_path):
+        """python -m plgeoadaptels must propagate the code, not swallow it."""
+        import subprocess
+        import sys
+        r = subprocess.run(
+            [sys.executable, "-m", "plgeoadaptels", "-i", "/no/such.tif",
+             "-o", str(tmp_path / "o.tif"), "-q"],
+            capture_output=True, text=True)
+        assert r.returncode == 1
