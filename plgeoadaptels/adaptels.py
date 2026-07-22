@@ -94,8 +94,8 @@ def _validate_normalized_threshold(threshold, distance, n_layers,
             f"minkowski distance across {n_layers} band(s) at p={minkowski_p} "
             f"is {ceiling:.4f}. A threshold at or above that merges the "
             f"entire raster into one adaptel. Rescale the threshold to the "
-            f"normalized range — on 3-band imagery 0.1-0.5 is a working "
-            f"span, and the right value depends on the scene — or drop "
+            f"normalized range -- on 3-band imagery 0.1-0.5 is a working "
+            f"span, and the right value depends on the scene -- or drop "
             f"normalize and keep the raw-data threshold."
         )
 

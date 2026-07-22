@@ -542,7 +542,7 @@ def sicle_from_array(data, mask=None, n_segments=200,
 
     # Validate n_segments
     if n_segments < 1:
-        raise ValueError(f"n_segments must be ≥ 1, got {n_segments}")
+        raise ValueError(f"n_segments must be >= 1, got {n_segments}")
     if n_oversampling < n_segments:
         # SICLE only ever removes seeds, so starting below the target cannot
         # reach it. Correcting is right, doing it silently is not: the
@@ -600,14 +600,14 @@ def create_sicle(input_files, output_file=None,
 
     if not quiet:
         print(f"SICLE superpixels (n_segments={n_segments}, "
-              f"N₀={n_oversampling}, Ω={n_iterations})")
+              f"n_oversampling={n_oversampling}, n_iterations={n_iterations})")
 
     # Read input raster
     layers, mask, meta, cols, rows = read_raster(input_files)
     n_layers = layers.shape[0]
 
     if not quiet:
-        print(f"  Input: {rows}×{cols}, {n_layers} band(s)")
+        print(f"  Input: {rows}x{cols}, {n_layers} band(s)")
 
     # Read saliency if provided
     saliency = None

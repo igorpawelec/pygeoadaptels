@@ -797,3 +797,42 @@ class TestCLI:
              "-o", str(tmp_path / "o.tif"), "-q"],
             capture_output=True, text=True)
         assert r.returncode == 1
+
+
+class TestConsoleEncoding:
+    """create_sicle's progress header must encode on the console it prints to.
+
+    It used to read ``N₀=...  Ω=...`` and ``{rows}×{cols}`` -- U+2080, U+03A9,
+    U+00D7. With the default ``quiet=False`` on a cp1250 console (the default
+    on a Polish Windows) the first print raised UnicodeEncodeError before any
+    work happened. The rest of the suite runs with ``quiet=True`` or through
+    pytest's UTF-8 capture, so nothing exercised the real console path.
+    """
+
+    @staticmethod
+    def _tiny_raster(tmp_path):
+        rasterio = pytest.importorskip("rasterio")
+        from rasterio.transform import from_origin
+        p = tmp_path / "s.tif"
+        data = (np.random.default_rng(0).random((3, 24, 24)) * 255).astype("float64")
+        with rasterio.open(p, "w", driver="GTiff", height=24, width=24, count=3,
+                           dtype="float64", transform=from_origin(0, 0, 1, 1),
+                           crs="EPSG:2180") as f:
+            f.write(data)
+        return str(p)
+
+    def test_verbose_header_survives_ascii_stdout(self, tmp_path):
+        import io
+        import sys
+        from plgeoadaptels.sicle import create_sicle
+        src = self._tiny_raster(tmp_path)
+        buf = io.TextIOWrapper(io.BytesIO(), encoding="ascii", errors="strict")
+        old = sys.stdout
+        sys.stdout = buf
+        try:
+            labels, n = create_sicle(src, n_segments=20, n_oversampling=200,
+                                     n_iterations=2, quiet=False)
+            buf.flush()
+        finally:
+            sys.stdout = old
+        assert n >= 1

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.8.1] — 2026-07-22
+
+### Fixed
+- **`create_sicle` crashed on a cp1250 console with its default settings.**
+  The progress header read `N₀=... Ω=...` and `{rows}×{cols}` — U+2080,
+  U+03A9, U+00D7 — and `quiet` defaults to `False`, so the first `print`
+  raised `UnicodeEncodeError` on a Polish Windows console before any work
+  began. Two error messages had the same problem (`≥` U+2265 in the
+  `n_segments` check, `—` U+2014 in the normalize-threshold guidance): once
+  raised and printed by the CLI they would crash the same way. All are ASCII
+  now. A regression test drives `create_sicle` through an ASCII-strict stream,
+  and `test_console_ascii.py` statically rejects non-ASCII in any
+  `print`/`raise`/`warn` string across the package.
+
+
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
