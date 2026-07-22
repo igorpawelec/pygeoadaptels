@@ -383,7 +383,18 @@ def _run_sicle(layers, n_layers, mask, cols, rows,
         # One NaN in the saliency map was enough — it produced a superpixel
         # of 73064 pixels against a median of 38 on the test scene.
         rank = np.where(np.isnan(relevance), -np.inf, relevance)
-        order = np.argsort(rank)[::-1]  # descending
+        # kind='stable', because the default argsort is an introsort and its
+        # order among equal scores is unspecified. Two seeds can share a
+        # relevance exactly, and swapping them does not merely renumber the
+        # output: the seed index becomes the label, and _ift_fmax awards a
+        # contested pixel to whichever seed reached it first, so the order
+        # decides the partition. One such swap moved 65 pixels on a 45x58
+        # scene. An unspecified order also means this package's own output
+        # is not guaranteed across NumPy versions.
+        #
+        # Measured cost of the switch on SNP_21_2020_1.tif: none. The result
+        # is bit-identical at 200 and 800 segments.
+        order = np.argsort(rank, kind="stable")[::-1]  # descending
         seeds = seeds[order[:m_keep]]
 
         # Labels are deliberately not remapped here. _ift_fmax reinitialises

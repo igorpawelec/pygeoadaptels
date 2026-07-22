@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-07-22
+
+### Changed
+- **SICLE ranks seeds with a stable sort.** `np.argsort` defaults to an
+  introsort, whose order among equal scores is unspecified. Two seeds can
+  carry exactly the same relevance, and swapping them does more than
+  renumber the output: the seed index becomes the label, and `_ift_fmax`
+  awards a contested pixel to whichever seed reached it first, so the order
+  decides the partition. One such swap moved 65 pixels on a 45x58 scene.
+
+  It also meant this package's own output was not guaranteed across NumPy
+  versions, since nothing obliges an introsort to order ties the same way
+  twice.
+
+  **Measured cost on `SNP_21_2020_1.tif`: none.** Bit-identical at 200 and
+  800 segments. It is a minor rather than a patch release only because it
+  can change the result wherever a tie exists, as it did on the synthetic
+  scene above.
+
+  Found while porting SICLE to R. Both C kernels matched the Python bit for
+  bit -- the IFT labels and the relevance vector, zero difference -- and the
+  divergence was entirely in how the two languages broke a tie in the
+  ranking. R's `order()` is stable, so `rev(order(rank))` now reproduces
+  `argsort(rank, kind="stable")[::-1]` element for element.
+
 ## [0.6.0] — 2026-07-22
 
 ### Added
