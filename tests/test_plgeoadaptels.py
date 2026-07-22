@@ -634,3 +634,93 @@ class TestSeedBufferGrowth:
         b, nb = adaptels_from_array(d, threshold=30.0)
         assert na == nb
         np.testing.assert_array_equal(a, b)
+
+
+class TestSicleExplicitSeeds:
+    """Seeds can be supplied instead of sampled.
+
+    NumPy's Generator.choice cannot be reproduced outside NumPy: it needs
+    PCG64 and the internals of choice, neither of which carries a stability
+    guarantee. Reimplementing an undocumented ordering detail of a
+    third-party library is what left rHRG disagreeing with scikit-image's
+    watershed. Supplying seeds lets a port be compared on the algorithm
+    rather than on the sampler.
+    """
+
+    @staticmethod
+    def _scene(n=120):
+        # 120x120 is 14400 valid pixels against the default n_oversampling of
+        # 3000, so the sampler actually chooses. Below about 55x55 every pixel
+        # becomes a seed and the sampler is a no-op -- see the test for that
+        # case, which is why this scene is not smaller.
+        return np.random.default_rng(1).random((3, n, n)) * 255
+
+    def test_explicit_seeds_reproduce_the_sampler(self):
+        """The property the cross-language check rests on."""
+        from plgeoadaptels.sicle import sicle_from_array
+        d = self._scene()
+        cols = d.shape[2]
+        valid = np.arange(d.shape[1] * cols)
+        flat = np.random.default_rng(42).choice(valid, size=500, replace=False)
+        rc = np.stack([flat // cols, flat % cols], axis=1)
+
+        auto, na = sicle_from_array(d, n_segments=40, n_oversampling=500,
+                                    quiet=True)
+        given, nb = sicle_from_array(d, n_segments=40, seeds=rc, quiet=True)
+        assert na == nb
+        np.testing.assert_array_equal(auto, given)
+
+    def test_random_state_changes_the_result(self):
+        from plgeoadaptels.sicle import sicle_from_array
+        d = self._scene()
+        a, _ = sicle_from_array(d, n_segments=40, quiet=True)
+        b, _ = sicle_from_array(d, n_segments=40, random_state=7, quiet=True)
+        assert not np.array_equal(a, b)
+
+    def test_random_state_is_inert_when_every_pixel_is_a_seed(self):
+        """N0 >= the valid pixel count makes the sampler a no-op.
+
+        A 50x50 scene has 2500 valid pixels against the default
+        n_oversampling of 3000, so the "sample" is every pixel and only its
+        order changes -- which the result turns out not to depend on. Worth
+        pinning: a test of random_state written on a small scene passes for
+        the wrong reason, or fails for one.
+        """
+        from plgeoadaptels.sicle import sicle_from_array
+        d = self._scene(50)
+        a, _ = sicle_from_array(d, n_segments=40, quiet=True)
+        b, _ = sicle_from_array(d, n_segments=40, random_state=7, quiet=True)
+        np.testing.assert_array_equal(a, b)
+
+    def test_default_random_state_is_the_historical_one(self):
+        """42 was hardcoded before 0.6.0; the default must not move."""
+        from plgeoadaptels.sicle import sicle_from_array
+        d = self._scene()
+        a, _ = sicle_from_array(d, n_segments=40, quiet=True)
+        b, _ = sicle_from_array(d, n_segments=40, random_state=42, quiet=True)
+        np.testing.assert_array_equal(a, b)
+
+    @pytest.mark.parametrize("bad,match", [
+        (np.array([[0, 0, 0]]), "n, 2"),
+        (np.array([[999, 0], [1, 1]]), "outside the raster"),
+        (np.array([[5, 5], [5, 5], [9, 9]]), "duplicate"),
+    ])
+    def test_bad_seeds_are_rejected(self, bad, match):
+        from plgeoadaptels.sicle import sicle_from_array
+        with pytest.raises(ValueError, match=match):
+            sicle_from_array(self._scene(), n_segments=2, seeds=bad, quiet=True)
+
+    def test_too_few_seeds_is_rejected(self):
+        from plgeoadaptels.sicle import sicle_from_array
+        rc = np.stack([np.arange(5), np.arange(5)], axis=1)
+        with pytest.raises(ValueError, match="cannot produce"):
+            sicle_from_array(self._scene(), n_segments=40, seeds=rc, quiet=True)
+
+    def test_seeds_on_nodata_are_rejected(self):
+        from plgeoadaptels.sicle import sicle_from_array
+        d = self._scene()
+        m = np.zeros((50, 50), dtype=np.uint8)
+        m[0:10, :] = 1
+        rc = np.stack([np.arange(5), np.arange(5)], axis=1)
+        with pytest.raises(ValueError, match="nodata"):
+            sicle_from_array(d, mask=m, n_segments=2, seeds=rc, quiet=True)

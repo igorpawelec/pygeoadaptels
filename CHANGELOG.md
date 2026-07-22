@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-07-22
+
+### Added
+- **`seeds` and `random_state` on `sicle_from_array()` and `create_sicle()`.**
+  The starting seeds were sampled with `np.random.default_rng(42)`, hardcoded,
+  with no way to vary or supply them.
+
+  `random_state` closes the smaller gap. `seeds` closes the one that blocked
+  the R port: `Generator.choice(replace=False)` cannot be reproduced outside
+  NumPy — it needs PCG64 *and* the internals of `choice`, and neither carries
+  a stability guarantee. Reimplementing an undocumented ordering detail of a
+  third-party library is precisely what left rHRG disagreeing with
+  `scikit-image`'s watershed on 0.25 % of pixels, and doing it again knowingly
+  would be a poor trade. Belém et al. treat the sampling as a free choice
+  ("one may opt for a simple random sampling"), so it is not part of the
+  algorithm; supplying seeds lets two implementations be compared on the part
+  that is.
+
+  Seeds are `(n, 2)` (row, col) pairs, validated for shape, bounds, nodata,
+  duplicates and count. Supplying the seeds the sampler would have drawn
+  reproduces its output bit for bit, which is the property the cross-language
+  check rests on.
+
+### Fixed
+- **The seed-preservation curve used the requested N0, not the placed one.**
+  `M(i)` was computed from `n_oversampling` while the actual seed count is
+  `min(n_oversampling, valid pixels)`. On a raster with fewer valid pixels
+  than requested, the curve was shaped for more seeds than existed. It now
+  uses the count actually placed, which is also the only sensible reading
+  when seeds are supplied directly.
+
+### Note
+The default path is unchanged: `random_state` defaults to the 42 that was
+hardcoded, and the output is bit-identical to 0.5.1 on `SNP_21_2020_1.tif`
+at two segment counts and on synthetic scenes at two iteration counts.
+
 ## [0.5.1] — 2026-07-22
 
 ### Fixed

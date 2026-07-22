@@ -268,7 +268,7 @@ def _compute_seed_relevance(layers, n_layers, labels, mask,
 
 def _run_sicle(layers, n_layers, mask, cols, rows,
                n_segments, n_oversampling, n_iterations,
-               saliency, quiet):
+               saliency, quiet, seeds=None, random_state=42):
     """
     Core SICLE algorithm.
 
@@ -284,17 +284,60 @@ def _run_sicle(layers, n_layers, mask, cols, rows,
     else:
         sal_flat = np.empty(0, dtype=np.float64)
 
-    # Step 1: Seed oversampling — random sampling
+    # Step 1: Seed oversampling
     valid_indices = np.where(mask == 0)[0]
     if len(valid_indices) < n_segments:
         raise ValueError(
             f"Not enough valid pixels ({len(valid_indices)}) "
             f"for {n_segments} segments."
         )
-    n_seeds_current = min(n_oversampling, len(valid_indices))
-    rng = np.random.default_rng(42)
-    seeds = rng.choice(valid_indices, size=n_seeds_current, replace=False)
-    seeds = seeds.astype(np.int64)
+
+    if seeds is None:
+        n_seeds_current = min(n_oversampling, len(valid_indices))
+        rng = np.random.default_rng(random_state)
+        seeds = rng.choice(valid_indices, size=n_seeds_current, replace=False)
+        seeds = seeds.astype(np.int64)
+    else:
+        # Explicit seeds, given as (row, col) pairs.
+        #
+        # This exists so that a reimplementation can be compared against this
+        # one on the algorithm rather than on the sampler. Belem et al. treat
+        # the sampling as a free choice ("one may opt for a simple random
+        # sampling"), and NumPy's Generator.choice is not reproducible outside
+        # NumPy: it needs PCG64 *and* the internals of choice, which carry no
+        # stability guarantee. Reimplementing an undocumented ordering detail
+        # of a third-party library is exactly what left rHRG disagreeing with
+        # scikit-image's watershed on 0.25% of pixels.
+        seeds = np.asarray(seeds)
+        if seeds.ndim != 2 or seeds.shape[1] != 2:
+            raise ValueError(
+                f"seeds must be an (n, 2) array of (row, col) pairs, got "
+                f"shape {seeds.shape}"
+            )
+        seeds = seeds.astype(np.int64)
+        r, c = seeds[:, 0], seeds[:, 1]
+        if ((r < 0) | (r >= rows) | (c < 0) | (c >= cols)).any():
+            raise ValueError(
+                f"a seed lies outside the raster ({rows}x{cols})"
+            )
+        seeds = (r * cols + c).astype(np.int64)
+        if mask[seeds].any():
+            raise ValueError(
+                f"{int(mask[seeds].sum())} seed(s) fall on nodata pixels"
+            )
+        if len(np.unique(seeds)) != len(seeds):
+            raise ValueError("seeds contains duplicate pixels")
+        if len(seeds) < n_segments:
+            raise ValueError(
+                f"{len(seeds)} seeds cannot produce {n_segments} segments; "
+                f"SICLE removes seeds, it never adds them"
+            )
+        n_seeds_current = len(seeds)
+
+    # N0 for the preservation curve is the number of seeds actually placed,
+    # not the number requested. They differ when the raster has fewer valid
+    # pixels than n_oversampling, and when seeds are supplied directly.
+    n_zero = len(seeds)
 
     if not quiet:
         print(f"  Seeds: {n_seeds_current} initial, target {n_segments}")
@@ -324,7 +367,11 @@ def _run_sicle(layers, n_layers, mask, cols, rows,
 
         # How many seeds to keep?
         t = float(iteration + 1) / float(omega - 1) if omega > 1 else 1.0
-        m_keep = max(int(n_oversampling ** (1.0 - t)), n_segments)
+        # n_zero, not n_oversampling: the curve is defined over the seeds
+        # that were actually placed. The two differ when the raster has
+        # fewer valid pixels than requested, and when seeds are supplied
+        # directly, where n_oversampling means nothing at all.
+        m_keep = max(int(n_zero ** (1.0 - t)), n_segments)
         m_keep = min(m_keep, len(seeds))
 
         # Keep the m_keep most relevant seeds.
@@ -362,7 +409,8 @@ def _run_sicle(layers, n_layers, mask, cols, rows,
 
 def sicle_from_array(data, mask=None, n_segments=200,
                      n_oversampling=3000, n_iterations=2,
-                     saliency=None, quiet=False):
+                     saliency=None, seeds=None, random_state=42,
+                     quiet=False):
     """
     Generate SICLE superpixels from numpy arrays.
 
@@ -400,6 +448,21 @@ def sicle_from_array(data, mask=None, n_segments=200,
         Must not be NaN anywhere the mask calls the pixel valid — fill
         nodata with 0 ("no object here") or extend the mask. Raises
         otherwise, because NaN silently corrupts the seed ranking.
+    seeds : array-like, shape (n, 2), optional
+        Explicit starting seeds as (row, col) pixel pairs, 0-based. When
+        given, `n_oversampling` and `random_state` are unused and N0 is
+        `len(seeds)`. Seeds must be unique, inside the raster, on unmasked
+        pixels, and at least `n_segments` of them, since SICLE only ever
+        removes seeds.
+
+        Provided so that a reimplementation in another language can be
+        compared against this one on the algorithm rather than on the
+        sampler: NumPy's `Generator.choice` cannot be reproduced outside
+        NumPy, and its internals carry no stability guarantee.
+    random_state : int, default 42
+        Seed for the random sampling used when `seeds` is None. The default
+        reproduces the behaviour of every release before 0.6.0, where it
+        was hardcoded.
     quiet : bool, default False
         Suppress progress messages.
 
@@ -485,7 +548,7 @@ def sicle_from_array(data, mask=None, n_segments=200,
     labels, n_sp = _run_sicle(
         layers, n_layers, mask_flat, cols, rows,
         n_segments, n_oversampling, n_iterations,
-        saliency, quiet)
+        saliency, quiet, seeds=seeds, random_state=random_state)
 
     return labels, n_sp
 
@@ -493,7 +556,7 @@ def sicle_from_array(data, mask=None, n_segments=200,
 def create_sicle(input_files, output_file=None,
                  n_segments=200, n_oversampling=3000,
                  n_iterations=2, saliency_file=None,
-                 quiet=False):
+                 seeds=None, random_state=42, quiet=False):
     """
     Generate SICLE superpixels from GeoTIFF file(s).
 
@@ -555,6 +618,8 @@ def create_sicle(input_files, output_file=None,
         n_oversampling=n_oversampling,
         n_iterations=n_iterations,
         saliency=saliency,
+        seeds=seeds,
+        random_state=random_state,
         quiet=quiet)
     dt = time.time() - t0
 
