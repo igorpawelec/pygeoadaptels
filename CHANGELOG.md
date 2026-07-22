@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-07-22
+
+### Fixed
+- **`pip install plgeoadaptels` produced a package that could not be imported.**
+  `dependencies` was an empty list, paired with a README recommending
+  `pip install --no-deps` so that pip would not overwrite conda's
+  GDAL/PROJ-linked builds. That flag alone achieves it; the empty list
+  additionally broke every ordinary pip install, which surfaced as
+  `ModuleNotFoundError: No module named 'numpy'` in the rgeoadaptels CI job
+  that installs this package to cross-check against it.
+
+  `numpy` and `numba` are now declared, because they are what `import
+  plgeoadaptels` actually needs. Neither is linked against GDAL or PROJ, so
+  the conflict the README warns about does not apply to them. `rasterio`,
+  `fiona` and `scipy` stay extras: all three are imported lazily inside the
+  functions that use them, never at import time. Conda users lose nothing —
+  `--no-deps` still does what it did.
+
 ## [0.5.0] — 2026-07-21
 
 ### Fixed
