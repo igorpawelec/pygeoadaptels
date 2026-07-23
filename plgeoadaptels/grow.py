@@ -326,31 +326,73 @@ def grow_seeds(data, seeds, mask=None, max_cost=None, band_weights=None,
     return labels_2d
 
 
+def _to_raster_crs(xs, ys, pts_crs, raster_crs, quiet):
+    """Reproject (xs, ys) into the raster's CRS when they differ, and say so.
+
+    Shared by every input that carries a CRS, so a GeoDataFrame gets the same
+    treatment as a file on disk (SPEC 5.3).
+    """
+    if raster_crs is None or pts_crs is None or not pts_crs:
+        return xs, ys
+    from fiona.transform import transform as fiona_transform
+    from rasterio.crs import CRS as RioCRS
+    rc = RioCRS.from_user_input(raster_crs)
+    pc = RioCRS.from_user_input(pts_crs)
+    if rc == pc:
+        return xs, ys
+    xs, ys = fiona_transform(pc.to_wkt(), rc.to_wkt(), list(xs), list(ys))
+    if not quiet:
+        print(f"  Reprojected {len(xs)} points from {pc.to_string()} to the "
+              f"raster CRS {rc.to_string()}")
+    return xs, ys
+
+
 def _read_points(points, points_layer, raster_crs, quiet):
     """Return a list of (x, y) map coordinates in the raster's CRS.
 
-    ``points`` is either a path to any OGR-readable point layer (read with
-    fiona, so .shp / .gpkg / .geojson all work) or an (n, 2) array already in
-    the raster CRS. A layer that carries a CRS different from the raster's is
-    reprojected, and the fact is reported unless quiet -- never assume they
-    match (SPEC 5.3).
+    ``points`` is a path to any OGR-readable point layer (read with fiona, so
+    .shp / .gpkg / .geojson all work), a GeoDataFrame or anything else exposing
+    a ``.geometry`` accessor, or an (n, 2) array. The first two carry a CRS and
+    are reprojected when it differs from the raster's, and the fact is reported
+    unless quiet -- never assume they match (SPEC 5.3). A plain array does not
+    carry one, so its coordinates are taken on faith.
     """
     if not isinstance(points, (str, Path)):
+        # Anything with a .geometry accessor -- a GeoDataFrame, a GeoSeries --
+        # is handled before np.asarray, which would otherwise choke on the
+        # shapely objects. This is not just a convenience: routing it through
+        # the array branch would drop the layer's CRS, and the array branch
+        # reads coordinates as already being in the raster's system.
+        geom = getattr(points, "geometry", None)
+        if geom is not None:
+            try:
+                xs = [float(v) for v in geom.x]
+                ys = [float(v) for v in geom.y]
+            except (AttributeError, TypeError, ValueError) as e:
+                raise ValueError(
+                    "grow_seeds needs a Point layer; the geometry column does "
+                    "not expose point coordinates. Digitise the objects as "
+                    "points.") from e
+            if not xs:
+                raise ValueError("the point layer is empty")
+            xs, ys = _to_raster_crs(xs, ys, getattr(points, "crs", None),
+                                    raster_crs, quiet)
+            return list(zip(xs, ys))
+
         arr = np.asarray(points, dtype=np.float64)
         if arr.ndim != 2 or arr.shape[1] != 2:
             raise ValueError(
-                "points array must be (n, 2) of (x, y) map coordinates in the "
-                f"raster CRS, got shape {arr.shape}")
+                "points must be an (n, 2) array of (x, y) map coordinates "
+                "already in the raster CRS, a point layer, or a path to one; "
+                f"got shape {arr.shape}")
         return [(float(x), float(y)) for x, y in arr]
 
     try:
         import fiona
-        from fiona.transform import transform as fiona_transform
     except ImportError as e:  # pragma: no cover
         raise ImportError(
             "fiona is required to read a point layer.\n"
             "  conda install -c conda-forge fiona") from e
-    from rasterio.crs import CRS as RioCRS
 
     xs, ys = [], []
     with fiona.open(str(points), layer=points_layer) as src:
@@ -369,15 +411,7 @@ def _read_points(points, points_layer, raster_crs, quiet):
     if not xs:
         raise ValueError(f"the point layer {points} is empty")
 
-    if raster_crs is not None and pts_crs:
-        rc = RioCRS.from_user_input(raster_crs)
-        pc = RioCRS.from_user_input(pts_crs)
-        if rc != pc:
-            xs, ys = fiona_transform(pc.to_wkt(), rc.to_wkt(), xs, ys)
-            if not quiet:
-                print(f"  Reprojected {len(xs)} points from {pc.to_string()} "
-                      f"to the raster CRS {rc.to_string()}")
-
+    xs, ys = _to_raster_crs(xs, ys, pts_crs, raster_crs, quiet)
     return list(zip(xs, ys))
 
 
@@ -397,9 +431,16 @@ def grow_seeds_from_files(input_files, points, output_file=None, polygons=None,
         Raster path(s); several are stacked band-wise (same extent/grid/CRS).
         Feed the bands you want the growth to see -- raw RGB, CIELAB, an index
         -- prepared upstream (SPEC section 1, 7).
-    points : str, Path, or (n, 2) array
-        A point layer (any OGR format) or map coordinates already in the
-        raster CRS. One point per object of interest.
+    points : str, Path, GeoDataFrame, or (n, 2) array
+        One point per object of interest, as a path to any OGR-readable point
+        layer, a GeoDataFrame (anything with a ``.geometry`` accessor), or map
+        coordinates.
+
+        The first two carry a CRS: one that differs from the raster's is
+        reprojected, and the fact is reported unless ``quiet`` -- never
+        assumed. **A plain array has no CRS**, so its coordinates are taken on
+        faith as already being in the raster's system. Prefer a real point
+        layer whenever you have one.
     output_file : str, optional
         Where to write the ``int32`` label raster (-1 = unassigned, set as its
         nodata). None writes no raster.

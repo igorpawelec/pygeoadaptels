@@ -401,6 +401,34 @@ class TestFromFiles:
         assert (weighted >= 0).sum() > (flat >= 0).sum(), "should fill more"
         assert green_share(weighted) < green_share(flat), "should spill less"
 
+    def test_geodataframe_goes_through_the_geometry_branch(self, tmp_path):
+        """A GeoDataFrame must be read through its geometry accessor, not
+        np.asarray. The array branch cannot hold shapely objects, and more to
+        the point it drops the layer's CRS: array coordinates are taken on
+        faith as already being in the raster's system, so mis-routing a layer
+        there would skip the reprojection silently."""
+        gpd = pytest.importorskip("geopandas")
+        pytest.importorskip("rasterio")
+        from shapely.geometry import Point
+        from plgeoadaptels.grow import grow_seeds_from_files
+        src = self._raster()
+        pts_rc, pts_xy = self._valid_seed_pixels(src)
+        gdf = gpd.GeoDataFrame(geometry=[Point(x, y) for x, y in pts_xy],
+                               crs="EPSG:2180")
+
+        from_arr = grow_seeds_from_files(src, np.array(pts_xy), max_cost=25.0,
+                                         quiet=True)
+        from_gdf = grow_seeds_from_files(src, gdf, max_cost=25.0, quiet=True)
+        np.testing.assert_array_equal(from_gdf, from_arr)
+
+        # A layer in another CRS is reprojected rather than taken at face
+        # value: same pixels, not merely "no exception".
+        reproj = grow_seeds_from_files(src, gdf.to_crs("EPSG:4326"),
+                                       max_cost=25.0, quiet=True)
+        np.testing.assert_array_equal(reproj, from_arr)
+        for i, (r, c) in enumerate(pts_rc):
+            assert reproj[r, c] == i
+
     def test_reprojects_points_from_another_crs(self, tmp_path):
         """5.3: a point layer in a different CRS must be reprojected, not
         assumed to match. Points are written in EPSG:4326 and must land on the

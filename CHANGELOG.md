@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.1] — 2026-07-23
+
+### Fixed
+- **A GeoDataFrame handed to `grow_seeds_from_files` raised `TypeError:
+  float() argument must be a string or a real number, not 'Point'`.** It fell
+  through to `np.asarray`, which cannot hold shapely objects. Anything exposing
+  a `.geometry` accessor is now read through it.
+
+  The ordering matters for more than convenience. A plain array carries no CRS,
+  so the array branch takes its coordinates on faith as already being in the
+  raster's system; a layer read through its geometry keeps its CRS and is
+  reprojected, with a message. Had the array conversion happened to succeed,
+  the reprojection would have been skipped in silence — which is why the
+  geometry branch is tested first and the docstring now says plainly that the
+  array form has no CRS.
+
+
 ## [0.9.0] — 2026-07-23
 
 ### Added
