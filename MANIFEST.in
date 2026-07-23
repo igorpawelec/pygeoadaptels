@@ -7,3 +7,4 @@ include pyproject.toml
 include requirements.txt
 include environment.yaml
 recursive-include test_data *.tif
+recursive-include test_data *.shp *.shx *.dbf *.prj *.cpg

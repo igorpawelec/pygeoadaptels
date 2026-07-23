@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.9.0] — 2026-07-23
+
+### Added
+- **`grow_seeds` / `grow_seeds_from_files`: seeded spectral region growing
+  ("inverse OBIA").** Each operator-placed point is grown into the region that
+  looks like the pixel it sits on; everything unseeded is left unassigned
+  (-1). It is the inverse of `adaptels`/`sicle`, which partition the whole
+  image, and was built to delineate standing dead trees from a hand-digitised
+  point layer.
+
+  It calls the SICLE IFT kernel (`_ift_fmax`) once, with every seed, and never
+  removes one, so `labels == i` is exactly the region grown from the i-th
+  point -- the label joins back to the point's attributes. Every option is
+  prepared into or read out of that single unmodified call: `max_cost` (a ΔE
+  tolerance when the input is CIELAB), `band_weights`, `compactness`,
+  `seed_window`, `max_radius`, and `fill_holes`. The kernel is unchanged, so
+  the R twin in rgeoadaptels shares one verified algorithm; the two are
+  checked bit-identical on 30 cases in `tools/`.
+
+  The file wrapper reads any OGR point layer (fiona), reprojects it to the
+  raster CRS when needed, converts each point to a pixel by an explicitly
+  specified half-open-pixel rule, and writes a label raster and 8-connected
+  crown polygons (`.gpkg` by default). See `docs/grow_seeds_guide.md` for what
+  the parameters mean and a working recipe for dead trees.
+
+
 ## [0.8.1] — 2026-07-22
 
 ### Fixed
