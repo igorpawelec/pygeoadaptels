@@ -1,5 +1,15 @@
 # Changelog
 
+
+## [0.10.0] — 2026-08-24
+
+### Changed
+- **Renamed from `plGeoAdaptels`.** The import name is now `pygeoadaptels`, so this is a
+  breaking change for anything that imported the old one. Nothing else moved:
+  the algorithms, the outputs and the cross-language agreement with the R twin
+  are unchanged.
+
+
 ## [0.9.1] — 2026-07-23
 
 ### Fixed
