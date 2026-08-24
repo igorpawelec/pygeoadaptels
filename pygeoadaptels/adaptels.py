@@ -1,5 +1,5 @@
 """
-plGeoAdaptels - Scale-Adaptive Superpixels for geospatial data.
+pygeoadaptels - Scale-Adaptive Superpixels for geospatial data.
 
 Main API module providing the high-level function to create adaptels.
 
@@ -242,7 +242,7 @@ def create_adaptels(input_files, output_file=None,
     
     Examples
     --------
-    >>> from plgeoadaptels import create_adaptels
+    >>> from pygeoadaptels import create_adaptels
     >>> labels, n = create_adaptels('input.tif', 'output.tif', threshold=60.0)
     >>> print(f"Created {n} adaptels")
     
@@ -265,7 +265,7 @@ def create_adaptels(input_files, output_file=None,
     if normalize:
         steps.insert(1, "Normalize")
     use_tqdm = _HAS_TQDM and not quiet
-    pbar = _tqdm(steps, desc="plGeoAdaptels", unit="step") if use_tqdm else None
+    pbar = _tqdm(steps, desc="pygeoadaptels", unit="step") if use_tqdm else None
     
     def _step(name):
         if pbar is not None:

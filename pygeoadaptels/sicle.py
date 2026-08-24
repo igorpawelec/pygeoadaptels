@@ -8,7 +8,7 @@ Journal of Mathematical Imaging and Vision, 65:770–786, 2023.
 DOI: 10.1007/s10851-023-01156-9
 
 Pure Python + Numba reimplementation for geospatial raster data.
-Reuses min-heap from plgeoadaptels.core.
+Reuses min-heap from pygeoadaptels.core.
 """
 
 import warnings
@@ -306,7 +306,7 @@ def _run_sicle(layers, n_layers, mask, cols, rows,
         # sampling"), and NumPy's Generator.choice is not reproducible outside
         # NumPy: it needs PCG64 *and* the internals of choice, which carry no
         # stability guarantee. Reimplementing an undocumented ordering detail
-        # of a third-party library is exactly what left rHRG disagreeing with
+        # of a third-party library is exactly what left rcacumen disagreeing with
         # scikit-image's watershed on 0.25% of pixels.
         seeds = np.asarray(seeds)
         if seeds.ndim != 2 or seeds.shape[1] != 2:
@@ -491,7 +491,7 @@ def sicle_from_array(data, mask=None, n_segments=200,
     Examples
     --------
     >>> import numpy as np
-    >>> from plgeoadaptels.sicle import sicle_from_array
+    >>> from pygeoadaptels.sicle import sicle_from_array
     >>> data = np.random.rand(3, 200, 200)
     >>> labels, n = sicle_from_array(data, n_segments=100)
     """

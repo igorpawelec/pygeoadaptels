@@ -1,15 +1,15 @@
 """The version must be one number, not four that agree by hand.
 
-GeoPalette shipped 0.5.0 and 0.6.0 with ``__version__`` still reading 0.4.0,
-and rHRG's CITATION.cff sat two releases behind DESCRIPTION. Both times the
+pygeopalette shipped 0.5.0 and 0.6.0 with ``__version__`` still reading 0.4.0,
+and rcacumen's CITATION.cff sat two releases behind DESCRIPTION. Both times the
 bump edited the places someone remembered instead of searching for the old
 number, and nothing was checking. Nothing was checking here either.
 
-What this compares needs care. ``plgeoadaptels.__version__`` is read from the
+What this compares needs care. ``pygeoadaptels.__version__`` is read from the
 installed distribution's metadata, with a string literal as the fallback::
 
     try:
-        __version__ = _version("plgeoadaptels")
+        __version__ = _version("pygeoadaptels")
     except Exception:
         __version__ = "0.8.0"
 
@@ -29,7 +29,7 @@ import re
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-PKG = ROOT / "plgeoadaptels" / "__init__.py"
+PKG = ROOT / "pygeoadaptels" / "__init__.py"
 
 
 def _pyproject_version():

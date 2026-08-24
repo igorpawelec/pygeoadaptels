@@ -38,10 +38,10 @@ jobs:
         # package somewhere the tests cannot see, the failure otherwise
         # surfaces later as a bare ModuleNotFoundError from pytest, which
         # says nothing about where it went wrong.
-        run: python -c "import plgeoadaptels; print(plgeoadaptels.__name__, plgeoadaptels.__version__, plgeoadaptels.__file__)"
+        run: python -c "import pygeoadaptels; print(pygeoadaptels.__name__, pygeoadaptels.__version__, pygeoadaptels.__file__)"
 
       - name: Lint
-        run: python -m pyflakes plgeoadaptels/ tests/ examples/
+        run: python -m pyflakes pygeoadaptels/ tests/ examples/
 
       - name: Test
         run: python -m pytest -v

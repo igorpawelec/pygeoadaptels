@@ -23,7 +23,7 @@ own signature. `max_cost` caps it. So:
   clicked.
 - Feed CIELAB, not raw RGB. `max_cost` is only meaningful as a tolerance
   because CIELAB is perceptually near-uniform; a Euclidean step in RGB is not.
-  Convert with GeoPalette first.
+  Convert with pygeopalette first.
 
 ## Calibrate `max_cost` by sweeping it
 

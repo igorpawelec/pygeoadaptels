@@ -1,9 +1,9 @@
 """
-Command-line interface for plGeoAdaptels.
+Command-line interface for pygeoadaptels.
 
 Usage:
-    python -m plgeoadaptels -i input.tif -o output.tif -t 60.0
-    plgeoadaptels -i band1.tif -i band2.tif -o result.tif -t 40.0
+    python -m pygeoadaptels -i input.tif -o output.tif -t 60.0
+    pygeoadaptels -i band1.tif -i band2.tif -o result.tif -t 40.0
 """
 
 import argparse
@@ -15,7 +15,7 @@ from .adaptels import create_adaptels
 def build_parser():
     """The argument parser, exposed so that tests can inspect it."""
     parser = argparse.ArgumentParser(
-        prog='plgeoadaptels',
+        prog='pygeoadaptels',
         description='Scale-Adaptive Superpixels (Adaptels) for geospatial data'
     )
     
@@ -65,7 +65,7 @@ def main(argv=None):
     except (OSError, ValueError) as e:
         # a missing raster or a threshold outside the metric's scale is a
         # user mistake, not a crash; a traceback helps nobody here
-        print(f"plgeoadaptels: error: {e}", file=sys.stderr)
+        print(f"pygeoadaptels: error: {e}", file=sys.stderr)
         return 1
 
     return 0

@@ -1,5 +1,5 @@
 """
-plGeoAdaptels — Vectorization of adaptel labels to polygons.
+pygeoadaptels — Vectorization of adaptel labels to polygons.
 
 Uses only rasterio.features.shapes + fiona for polygon export.
 No geopandas or shapely required (following Netzel's recommendation).
@@ -80,8 +80,8 @@ def vectorize_adaptels(labels, transform, crs_wkt,
 
     Examples
     --------
-    >>> from plgeoadaptels import create_adaptels
-    >>> from plgeoadaptels.vectorize import vectorize_adaptels
+    >>> from pygeoadaptels import create_adaptels
+    >>> from pygeoadaptels.vectorize import vectorize_adaptels
     >>> import rasterio
     >>>
     >>> labels, n = create_adaptels('input.tif', threshold=60.0)
@@ -193,7 +193,7 @@ def vectorize_from_file(input_raster, output_path,
 
     Examples
     --------
-    >>> from plgeoadaptels.vectorize import vectorize_from_file
+    >>> from pygeoadaptels.vectorize import vectorize_from_file
     >>> n = vectorize_from_file('adaptels.tif', 'adaptels.shp')
     >>> print(f"Wrote {n} polygons")
     """

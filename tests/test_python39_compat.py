@@ -1,9 +1,9 @@
 """The package claims requires-python >= 3.9. Check that it means it.
 
-Ported from pyHRG, which shipped 0.5.0 with ``max_iters: int | None`` and did
+Ported from pycacumen, which shipped 0.5.0 with ``max_iters: int | None`` and did
 not import at all on 3.9: PEP 604 in an annotation is a runtime expression
 before 3.10. It was invisible there because development runs on 3.12, and CI
-caught it only after the tag. plGeoAdaptels is clean today — this is what keeps
+caught it only after the tag. pygeoadaptels is clean today — this is what keeps
 it clean, and it is not idle: the package is one ``from __future__ import annotations`` away from the
 same class of failure the moment anyone writes a modern-looking annotation,
 and nothing else in the suite would say so.
@@ -15,7 +15,7 @@ import ast
 import pathlib
 import unittest
 
-PKG = pathlib.Path(__file__).resolve().parent.parent / "plgeoadaptels"
+PKG = pathlib.Path(__file__).resolve().parent.parent / "pygeoadaptels"
 SOURCES = sorted(PKG.rglob("*.py"))
 
 

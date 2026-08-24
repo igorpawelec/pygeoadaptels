@@ -1,5 +1,5 @@
 """
-plGeoAdaptels — Scale-Adaptive Superpixels for geospatial data.
+pygeoadaptels — Scale-Adaptive Superpixels for geospatial data.
 
 A pure Python + Numba implementation of two complementary superpixel
 algorithms for geospatial raster data:
@@ -23,25 +23,25 @@ Python + Numba reimplementation:
 
 Usage::
 
-    from plgeoadaptels import create_adaptels, adaptels_from_array
+    from pygeoadaptels import create_adaptels, adaptels_from_array
 
     # Adaptels: threshold-based (no n_segments needed)
     labels, n = create_adaptels('input.tif', 'output.tif', threshold=60.0)
     labels, n = adaptels_from_array(data_array, threshold=60.0)
 
     # SICLE: n_segments-based (best boundary delineation)
-    from plgeoadaptels.sicle import create_sicle, sicle_from_array
+    from pygeoadaptels.sicle import create_sicle, sicle_from_array
     labels, n = sicle_from_array(data_array, n_segments=200)
     labels, n = create_sicle('input.tif', 'output.tif', n_segments=200)
 
     # Vectorize to Shapefile (no geopandas needed)
-    from plgeoadaptels.vectorize import vectorize_from_file
+    from pygeoadaptels.vectorize import vectorize_from_file
     vectorize_from_file('output.tif', 'adaptels.shp')
 """
 
 try:
     from importlib.metadata import version as _version
-    __version__ = _version("plgeoadaptels")
+    __version__ = _version("pygeoadaptels")
 except Exception:
     __version__ = "0.9.1"
 
@@ -74,7 +74,7 @@ except (ImportError, OSError):
                 mod = importlib.import_module(_LAZY_IMPORTS[name], __name__)
             except (ImportError, OSError) as e:
                 raise ImportError(
-                    f"Cannot load plgeoadaptels.{name}: {e}\n"
+                    f"Cannot load pygeoadaptels.{name}: {e}\n"
                     f"Install deps: conda install -c conda-forge numpy numba rasterio"
                 ) from e
             obj = getattr(mod, name)

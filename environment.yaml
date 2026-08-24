@@ -1,4 +1,4 @@
-name: plgeoadaptels
+name: pygeoadaptels
 channels:
   - conda-forge
 dependencies:

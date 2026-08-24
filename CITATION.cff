@@ -1,12 +1,12 @@
 cff-version: 1.2.0
-title: "plGeoAdaptels — Scale-Adaptive Superpixels for geospatial data"
+title: "pygeoadaptels — Scale-Adaptive Superpixels for geospatial data"
 message: "If you use this software, please cite it as below."
 type: software
 authors:
   - family-names: Pawelec
     given-names: Igor
     affiliation: "Kraków, Poland"
-repository-code: "https://github.com/igorpawelec/plgeoadaptels"
+repository-code: "https://github.com/igorpawelec/pygeoadaptels"
 license: GPL-3.0-or-later
 version: "0.9.1"
 date-released: "2026-07-22"
@@ -25,7 +25,7 @@ references:
     journal: "Color and Imaging Conference (CIC26)"
     year: 2018
   - type: software
-    title: "plGeoAdaptels (original C implementation)"
+    title: "pygeoadaptels (original C implementation)"
     authors:
       - family-names: Netzel
         given-names: Paweł

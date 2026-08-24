@@ -3,7 +3,7 @@ requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "plgeoadaptels"
+name = "pygeoadaptels"
 version = "0.9.1"
 description = "Scale-Adaptive Superpixels (Adaptels) for geospatial raster data"
 readme = "README.md"
@@ -29,11 +29,11 @@ classifiers = [
 # Dependencies intentionally left empty.
 # In conda environments pip can break native libraries (GDAL, PROJ).
 # Install manually:  conda install -c conda-forge numpy numba rasterio fiona
-# What `import plgeoadaptels` actually needs, and nothing more. This was an
+# What `import pygeoadaptels` actually needs, and nothing more. This was an
 # empty list until 0.5.1, paired with a README telling people to use
 # `pip install --no-deps` so that pip would not overwrite conda's
 # GDAL/PROJ-linked builds. The `--no-deps` flag alone achieves that; the empty
-# list additionally meant a plain `pip install plgeoadaptels` produced a
+# list additionally meant a plain `pip install pygeoadaptels` produced a
 # package that could not be imported at all, which is how the rgeoadaptels CI
 # job first noticed.
 #
@@ -54,19 +54,19 @@ connectivity = ["scipy>=1.7"]
 
 # NOTE: geopandas and shapely deliberately removed.
 # Vectorization uses rasterio.features.shapes + fiona only.
-# See: plgeoadaptels.vectorize module.
+# See: pygeoadaptels.vectorize module.
 
 [project.urls]
-Homepage = "https://github.com/igorpawelec/plgeoadaptels"
-Repository = "https://github.com/igorpawelec/plgeoadaptels"
-Issues = "https://github.com/igorpawelec/plgeoadaptels/issues"
+Homepage = "https://github.com/igorpawelec/pygeoadaptels"
+Repository = "https://github.com/igorpawelec/pygeoadaptels"
+Issues = "https://github.com/igorpawelec/pygeoadaptels/issues"
 
 [project.scripts]
-plgeoadaptels = "plgeoadaptels.cli:main"
+pygeoadaptels = "pygeoadaptels.cli:main"
 
 [tool.setuptools.packages.find]
 # Explicit, so setuptools never guesses from the flat layout: www/,
 # test_data/, tests/ and examples/ stay out of the wheel, while any future
 # subpackage is still picked up.
-include = ["plgeoadaptels*"]
+include = ["pygeoadaptels*"]
 exclude = ["tests*", "examples*"]

@@ -1,6 +1,6 @@
 """
-pytest suite for plGeoAdaptels.
-Run: pytest tests/test_plgeoadaptels.py -v
+pytest suite for pygeoadaptels.
+Run: pytest tests/test_pygeoadaptels.py -v
 """
 
 import numpy as np
@@ -28,36 +28,36 @@ def gradient_data():
 class TestAdaptelsFromArray:
 
     def test_uniform_gives_one(self, uniform_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         labels, n = adaptels_from_array(uniform_data, threshold=30.0)
         assert n == 1
         assert labels.shape == (100, 100)
 
     def test_split_gives_at_least_two(self, split_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         labels, n = adaptels_from_array(split_data, threshold=30.0)
         assert n >= 2
 
     def test_gradient_gives_many(self, gradient_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         labels, n = adaptels_from_array(gradient_data, threshold=30.0)
         assert n > 5
 
     def test_lower_threshold_more_adaptels(self, gradient_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         _, n_low = adaptels_from_array(gradient_data, threshold=10.0)
         _, n_high = adaptels_from_array(gradient_data, threshold=100.0)
         assert n_low > n_high
 
     def test_queen_topology(self, gradient_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         _, n4 = adaptels_from_array(gradient_data, threshold=30.0, queen_topology=False)
         _, n8 = adaptels_from_array(gradient_data, threshold=30.0, queen_topology=True)
         # 8-connectivity produces fewer or equal adaptels
         assert n8 <= n4
 
     def test_normalize(self, gradient_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         labels, n = adaptels_from_array(gradient_data, threshold=0.5, normalize=True)
         assert n >= 1
         assert labels.shape == (100, 100)
@@ -68,7 +68,7 @@ class TestAdaptelsFromArray:
                                              ("cosine", 0.03),
                                              ("angular", 0.03)])
     def test_distance_metrics(self, gradient_data, dist, thresh):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         labels, n = adaptels_from_array(gradient_data, threshold=thresh,
                                         distance=dist)
         # `n >= 1` would pass even when a metric collapses the whole raster
@@ -79,25 +79,25 @@ class TestAdaptelsFromArray:
         assert set(np.unique(labels)) <= set(range(n))
 
     def test_multiband(self):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         data = np.random.rand(3, 50, 50).astype(np.float64)
         labels, n = adaptels_from_array(data, threshold=30.0)
         assert n >= 1
         assert labels.shape == (50, 50)
 
     def test_labels_dtype_and_range(self, uniform_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         labels, n = adaptels_from_array(uniform_data, threshold=30.0)
         assert labels.dtype == np.int32
         assert labels.min() >= 0
 
     def test_invalid_threshold(self, uniform_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         with pytest.raises(ValueError):
             adaptels_from_array(uniform_data, threshold=-1.0)
 
     def test_invalid_distance(self, uniform_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         with pytest.raises(ValueError):
             adaptels_from_array(uniform_data, threshold=30.0, distance="invalid")
 
@@ -105,21 +105,21 @@ class TestAdaptelsFromArray:
 class TestImports:
 
     def test_import_package(self):
-        import plgeoadaptels
-        assert hasattr(plgeoadaptels, '__version__')
+        import pygeoadaptels
+        assert hasattr(pygeoadaptels, '__version__')
 
     def test_import_functions(self):
-        from plgeoadaptels import create_adaptels, adaptels_from_array
+        from pygeoadaptels import create_adaptels, adaptels_from_array
         assert callable(create_adaptels)
         assert callable(adaptels_from_array)
 
     def test_import_vectorize(self):
-        from plgeoadaptels.vectorize import vectorize_adaptels, vectorize_from_file
+        from pygeoadaptels.vectorize import vectorize_adaptels, vectorize_from_file
         assert callable(vectorize_adaptels)
         assert callable(vectorize_from_file)
 
     def test_import_sicle(self):
-        from plgeoadaptels.sicle import sicle_from_array, create_sicle
+        from pygeoadaptels.sicle import sicle_from_array, create_sicle
         assert callable(sicle_from_array)
         assert callable(create_sicle)
 
@@ -129,28 +129,28 @@ class TestImports:
 class TestSicleFromArray:
 
     def test_basic(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.rand(3, 50, 50).astype(np.float64)
         labels, n = sicle_from_array(data, n_segments=10, quiet=True)
         assert labels.shape == (50, 50)
         assert n == 10
 
     def test_single_band(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.rand(100, 100).astype(np.float64)
         labels, n = sicle_from_array(data, n_segments=20, quiet=True)
         assert labels.shape == (100, 100)
         assert n == 20
 
     def test_n_segments_respected(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.rand(3, 80, 80).astype(np.float64)
         for n_seg in [5, 50, 200]:
             labels, n = sicle_from_array(data, n_segments=n_seg, quiet=True)
             assert n == n_seg
 
     def test_labels_cover_image(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.rand(3, 60, 60).astype(np.float64)
         labels, n = sicle_from_array(data, n_segments=30, quiet=True)
         # Every pixel should be assigned
@@ -159,7 +159,7 @@ class TestSicleFromArray:
         assert labels.max() < n
 
     def test_with_saliency(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.rand(3, 50, 50).astype(np.float64)
         sal = np.zeros((50, 50), dtype=np.float64)
         sal[15:35, 15:35] = 1.0  # "object" in center
@@ -169,7 +169,7 @@ class TestSicleFromArray:
         assert n == 20
 
     def test_oversampling_auto(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.rand(3, 30, 30).astype(np.float64)
         # n_oversampling < n_segments auto-corrects, but says so: SICLE only
         # removes seeds, so the caller's N0 is silently discarded otherwise.
@@ -189,7 +189,7 @@ class TestDistanceMetrics:
 
     @staticmethod
     def _dist(mean, px, code):
-        from plgeoadaptels.core import calc_distance
+        from pygeoadaptels.core import calc_distance
         n = len(mean)
         layers = np.ascontiguousarray(np.array(px, dtype=np.float64).reshape(n, 1))
         return calc_distance(layers, n, np.array(mean, dtype=np.float64),
@@ -209,7 +209,7 @@ class TestDistanceMetrics:
 
     @pytest.mark.parametrize("distance", ["cosine", "angular"])
     def test_threshold_above_scale_rejected(self, distance):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         img = np.random.default_rng(0).uniform(0, 255, (3, 30, 30))
         # the package default of 60 is scaled for minkowski and would merge
         # a bounded metric into a single adaptel
@@ -218,20 +218,20 @@ class TestDistanceMetrics:
 
     @pytest.mark.parametrize("distance", ["cosine", "angular"])
     def test_threshold_responds(self, distance):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         img = np.random.default_rng(0).uniform(0, 255, (3, 40, 40))
         _, n_tight = adaptels_from_array(img, threshold=0.002, distance=distance)
         _, n_loose = adaptels_from_array(img, threshold=0.2, distance=distance)
         assert n_tight > n_loose, "threshold must change the segmentation"
 
     def test_minkowski_accepts_large_threshold(self):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         img = np.random.default_rng(0).uniform(0, 255, (3, 30, 30))
         _, n = adaptels_from_array(img, threshold=60.0, distance="minkowski")
         assert n > 0
 
     def test_metrics_differ(self):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         img = np.random.default_rng(1).uniform(0, 255, (3, 40, 40))
         _, a = adaptels_from_array(img, threshold=0.03, distance="angular")
         _, c = adaptels_from_array(img, threshold=0.03, distance="cosine")
@@ -259,19 +259,19 @@ class TestEnforceConnectivity:
 
     @pytest.fixture
     def segmented(self):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         rng = np.random.default_rng(4)
         img = rng.uniform(0, 255, (3, 90, 90))
         return adaptels_from_array(img, threshold=30.0)
 
     def test_removes_all_splits(self, segmented):
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         labels, n = segmented
         out, n2 = enforce_connectivity(labels)
         assert self._n_split(out, n2) == 0
 
     def test_never_merges_across_adaptels(self, segmented):
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         labels, n = segmented
         out, n2 = enforce_connectivity(labels)
         for k in range(n2):
@@ -279,26 +279,26 @@ class TestEnforceConnectivity:
                 "a new adaptel must lie inside exactly one old one"
 
     def test_preserves_coverage(self, segmented):
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         labels, _ = segmented
         out, _ = enforce_connectivity(labels)
         np.testing.assert_array_equal(labels >= 0, out >= 0)
 
     def test_labels_contiguous(self, segmented):
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         labels, _ = segmented
         out, n2 = enforce_connectivity(labels)
         assert sorted(np.unique(out[out >= 0])) == list(range(n2))
 
     def test_idempotent(self, segmented):
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         labels, _ = segmented
         out, _ = enforce_connectivity(labels)
         again, _ = enforce_connectivity(out)
         np.testing.assert_array_equal(out, again)
 
     def test_count_can_only_grow(self, segmented):
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         labels, n = segmented
         _, n2 = enforce_connectivity(labels)
         assert n2 >= n, "splitting can only add adaptels, never remove them"
@@ -310,7 +310,7 @@ class TestEnforceConnectivity:
         raster happens to contain a split adaptel small enough to absorb is
         not something a test should depend on.
         """
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         labels = np.full((10, 10), -1, dtype=np.int32)
         labels[:, :] = 1              # background first...
         labels[0:5, 0:5] = 0          # a solid block
@@ -328,7 +328,7 @@ class TestEnforceConnectivity:
         np.testing.assert_array_equal(labels >= 0, absorb >= 0)
 
     def test_min_size_preserves_coverage_on_real_segmentation(self, segmented):
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         labels, _ = segmented
         for ms in (0, 5, 20):
             out, n = enforce_connectivity(labels, min_size=ms)
@@ -337,7 +337,7 @@ class TestEnforceConnectivity:
 
     def test_splits_a_hand_built_case(self):
         """Two separate blocks sharing one label must become two adaptels."""
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         labels = np.full((10, 10), -1, dtype=np.int32)
         labels[1:3, 1:3] = 0
         labels[7:9, 7:9] = 0          # same id, nowhere near
@@ -347,18 +347,18 @@ class TestEnforceConnectivity:
         assert out[1, 1] != out[7, 7]
 
     def test_all_nodata(self):
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         out, n = enforce_connectivity(np.full((5, 5), -1, dtype=np.int32))
         assert n == 0
         assert (out < 0).all()
 
     def test_rejects_3d(self):
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         with pytest.raises(ValueError, match="2-D"):
             enforce_connectivity(np.zeros((2, 2, 2), dtype=np.int32))
 
     def test_rejects_negative_min_size(self, segmented):
-        from plgeoadaptels import enforce_connectivity
+        from pygeoadaptels import enforce_connectivity
         labels, _ = segmented
         with pytest.raises(ValueError, match="min_size"):
             enforce_connectivity(labels, min_size=-1)
@@ -385,7 +385,7 @@ class TestSicleHeapCapacity:
     """
 
     def test_no_valid_pixel_is_left_unlabelled(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         # Fully valid raster, so every pixel is reachable from some seed
         # and any -1 in the output is a lost pixel, not nodata.
         data = np.random.default_rng(7).random((3, 700, 700))
@@ -396,7 +396,7 @@ class TestSicleHeapCapacity:
         assert n == 200
 
     def test_more_seeds_than_the_old_cap(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         # 120000 seeds is above the old fixed 100000 heap slots, so the
         # seeding loop itself used to overflow and 20000 seeds never
         # propagated at all.
@@ -418,7 +418,7 @@ class TestSicleSaliencyValidation:
     """
 
     def test_nan_over_valid_pixels_is_rejected(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.default_rng(0).random((3, 60, 60))
         sal = np.random.default_rng(3).random((60, 60))
         sal[:10, :] = np.nan
@@ -427,7 +427,7 @@ class TestSicleSaliencyValidation:
 
     def test_nan_under_nodata_is_fine(self):
         """NaN where the mask already says nodata never reaches relevance."""
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.default_rng(0).random((3, 60, 60))
         mask = np.zeros((60, 60), dtype=np.uint8)
         mask[:10, :] = 1
@@ -440,14 +440,14 @@ class TestSicleSaliencyValidation:
         assert (labels[10:, :] >= 0).all()
 
     def test_wrong_shape_is_rejected(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.default_rng(0).random((3, 60, 60))
         with pytest.raises(ValueError, match="shape"):
             sicle_from_array(data, n_segments=20,
                              saliency=np.zeros((30, 30)), quiet=True)
 
     def test_clean_saliency_still_drives_the_result(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.default_rng(0).random((3, 60, 60))
         sal = np.zeros((60, 60))
         sal[20:40, 20:40] = 1.0
@@ -467,7 +467,7 @@ class TestSicleDeterminism:
     """
 
     def test_repeated_runs_are_identical(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.default_rng(11).random((3, 120, 120))
         a, na = sicle_from_array(data, n_segments=40, quiet=True)
         b, nb = sicle_from_array(data, n_segments=40, quiet=True)
@@ -485,7 +485,7 @@ class TestSicleDeterminism:
         reading — so the 4-connected tool reports a defect that is not there.
         """
         ndimage = pytest.importorskip("scipy.ndimage")
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         data = np.random.default_rng(11).random((3, 120, 120))
         labels, n = sicle_from_array(data, n_segments=40, quiet=True)
         eight = np.ones((3, 3), dtype=bool)
@@ -507,30 +507,30 @@ class TestNormalizedThreshold:
     """
 
     def test_default_threshold_is_rejected_when_normalized(self, split_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         with pytest.raises(ValueError, match="normalize"):
             adaptels_from_array(split_data, threshold=60.0, normalize=True)
 
     def test_error_names_the_ceiling(self):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         data = np.random.default_rng(0).random((3, 40, 40))
         with pytest.raises(ValueError, match=r"1\.7"):
             adaptels_from_array(data, threshold=60.0, normalize=True)
 
     def test_threshold_on_the_normalized_scale_works(self, split_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         labels, n = adaptels_from_array(split_data, threshold=0.5,
                                         normalize=True)
         assert n >= 2, "a two-valued raster must not collapse to one adaptel"
 
     def test_unnormalized_default_is_untouched(self, split_data):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         labels, n = adaptels_from_array(split_data, threshold=60.0)
         assert n >= 2
 
     def test_bounded_metrics_are_unaffected(self, split_data):
         """cosine is capped at 1 either way, so normalize changes nothing."""
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         labels, n = adaptels_from_array(split_data, threshold=0.03,
                                         distance='cosine', normalize=True)
         assert n >= 1
@@ -561,7 +561,7 @@ class TestSicleRelevanceAdjacency:
         return layers, labels, mask
 
     def test_diagonally_touching_trees_are_adjacent(self):
-        from plgeoadaptels.sicle import _compute_seed_relevance
+        from pygeoadaptels.sicle import _compute_seed_relevance
         layers, labels, mask = self._diagonal_pair()
         rel = _compute_seed_relevance(layers, 1, labels, mask, 4, 4, 2,
                                       np.empty(0, dtype=np.float64), False)
@@ -573,7 +573,7 @@ class TestSicleRelevanceAdjacency:
 
     def test_relevance_is_size_times_min_contrast(self):
         """vminsc(s) = vsize(s) * min contrast, per the paper."""
-        from plgeoadaptels.sicle import _compute_seed_relevance
+        from pygeoadaptels.sicle import _compute_seed_relevance
         layers, labels, mask = self._diagonal_pair()
         rel = _compute_seed_relevance(layers, 1, labels, mask, 4, 4, 2,
                                       np.empty(0, dtype=np.float64), False)
@@ -583,7 +583,7 @@ class TestSicleRelevanceAdjacency:
 
     def test_isolated_tree_scores_zero(self):
         """With no neighbour at all the sentinel must not leak into the score."""
-        from plgeoadaptels.sicle import _compute_seed_relevance
+        from pygeoadaptels.sicle import _compute_seed_relevance
         labels = np.full(16, -1, dtype=np.int32)
         labels[0] = 0
         layers = np.zeros((1, 16), dtype=np.float64)
@@ -611,7 +611,7 @@ class TestSeedBufferGrowth:
         return rng.integers(0, 256, (3, n, n)).astype(np.float64)
 
     def test_scene_past_the_old_cap_is_unchanged_by_it(self):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         labels, n = adaptels_from_array(self._noise(), threshold=30.0)
         # 29975 with a growing buffer; 29883 with the old flat cap of
         # 100000, which discarded 702 seeds. A regression to any fixed cap
@@ -623,12 +623,12 @@ class TestSeedBufferGrowth:
         assert (labels >= 0).all()
 
     def test_every_valid_pixel_is_labelled(self):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         labels, n = adaptels_from_array(self._noise(), threshold=30.0)
         assert set(np.unique(labels)) == set(range(n))
 
     def test_result_is_deterministic(self):
-        from plgeoadaptels import adaptels_from_array
+        from pygeoadaptels import adaptels_from_array
         d = self._noise()
         a, na = adaptels_from_array(d, threshold=30.0)
         b, nb = adaptels_from_array(d, threshold=30.0)
@@ -642,7 +642,7 @@ class TestSicleExplicitSeeds:
     NumPy's Generator.choice cannot be reproduced outside NumPy: it needs
     PCG64 and the internals of choice, neither of which carries a stability
     guarantee. Reimplementing an undocumented ordering detail of a
-    third-party library is what left rHRG disagreeing with scikit-image's
+    third-party library is what left rcacumen disagreeing with scikit-image's
     watershed. Supplying seeds lets a port be compared on the algorithm
     rather than on the sampler.
     """
@@ -657,7 +657,7 @@ class TestSicleExplicitSeeds:
 
     def test_explicit_seeds_reproduce_the_sampler(self):
         """The property the cross-language check rests on."""
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         d = self._scene()
         cols = d.shape[2]
         valid = np.arange(d.shape[1] * cols)
@@ -671,7 +671,7 @@ class TestSicleExplicitSeeds:
         np.testing.assert_array_equal(auto, given)
 
     def test_random_state_changes_the_result(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         d = self._scene()
         a, _ = sicle_from_array(d, n_segments=40, quiet=True)
         b, _ = sicle_from_array(d, n_segments=40, random_state=7, quiet=True)
@@ -686,7 +686,7 @@ class TestSicleExplicitSeeds:
         pinning: a test of random_state written on a small scene passes for
         the wrong reason, or fails for one.
         """
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         d = self._scene(50)
         a, _ = sicle_from_array(d, n_segments=40, quiet=True)
         b, _ = sicle_from_array(d, n_segments=40, random_state=7, quiet=True)
@@ -694,7 +694,7 @@ class TestSicleExplicitSeeds:
 
     def test_default_random_state_is_the_historical_one(self):
         """42 was hardcoded before 0.6.0; the default must not move."""
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         d = self._scene()
         a, _ = sicle_from_array(d, n_segments=40, quiet=True)
         b, _ = sicle_from_array(d, n_segments=40, random_state=42, quiet=True)
@@ -706,18 +706,18 @@ class TestSicleExplicitSeeds:
         (np.array([[5, 5], [5, 5], [9, 9]]), "duplicate"),
     ])
     def test_bad_seeds_are_rejected(self, bad, match):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         with pytest.raises(ValueError, match=match):
             sicle_from_array(self._scene(), n_segments=2, seeds=bad, quiet=True)
 
     def test_too_few_seeds_is_rejected(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         rc = np.stack([np.arange(5), np.arange(5)], axis=1)
         with pytest.raises(ValueError, match="cannot produce"):
             sicle_from_array(self._scene(), n_segments=40, seeds=rc, quiet=True)
 
     def test_seeds_on_nodata_are_rejected(self):
-        from plgeoadaptels.sicle import sicle_from_array
+        from pygeoadaptels.sicle import sicle_from_array
         d = self._scene()
         m = np.zeros((50, 50), dtype=np.uint8)
         m[0:10, :] = 1
@@ -731,7 +731,7 @@ class TestCLI:
 
     Both are recorded in this package's own changelog: a raw
     RasterioIOError traceback where a one-line message belonged, and
-    `python -m plgeoadaptels` returning 0 after a failure, so a script
+    `python -m pygeoadaptels` returning 0 after a failure, so a script
     checking $? saw success. Neither is visible from inside the library,
     and nothing was watching them.
 
@@ -749,11 +749,11 @@ class TestCLI:
         return str(p)
 
     def test_parser_is_named(self):
-        from plgeoadaptels.cli import build_parser
-        assert build_parser().prog == "plgeoadaptels"
+        from pygeoadaptels.cli import build_parser
+        assert build_parser().prog == "pygeoadaptels"
 
     def test_runs_and_writes(self, tmp_path):
-        from plgeoadaptels.cli import main
+        from pygeoadaptels.cli import main
         out = tmp_path / "out.tif"
         rc = main(["-i", self._raster(), "-o", str(out), "-t", "60", "-q"])
         assert rc == 0
@@ -761,39 +761,39 @@ class TestCLI:
 
     def test_missing_input_returns_one(self, tmp_path):
         """Exit code 1, not 0 -- the defect that shipped once already."""
-        from plgeoadaptels.cli import main
+        from pygeoadaptels.cli import main
         rc = main(["-i", str(tmp_path / "nope.tif"),
                    "-o", str(tmp_path / "o.tif"), "-q"])
         assert rc == 1
 
     def test_missing_input_reports_one_line(self, tmp_path, capsys):
         """And a message rather than a traceback -- the other one."""
-        from plgeoadaptels.cli import main
+        from pygeoadaptels.cli import main
         main(["-i", str(tmp_path / "nope.tif"),
               "-o", str(tmp_path / "o.tif"), "-q"])
         err = capsys.readouterr().err
         assert "Traceback" not in err
-        assert "plgeoadaptels: error:" in err
+        assert "pygeoadaptels: error:" in err
 
     def test_threshold_outside_the_metric_scale_returns_one(self, tmp_path):
         """The guard added in 0.3.0 has to survive the trip through argparse."""
-        from plgeoadaptels.cli import main
+        from pygeoadaptels.cli import main
         rc = main(["-i", self._raster(), "-o", str(tmp_path / "o.tif"),
                    "-t", "60", "-d", "cosine", "-q"])
         assert rc == 1
 
     def test_unknown_distance_is_rejected_by_the_parser(self, tmp_path):
-        from plgeoadaptels.cli import main
+        from pygeoadaptels.cli import main
         with pytest.raises(SystemExit):
             main(["-i", self._raster(), "-o", str(tmp_path / "o.tif"),
                   "-d", "cosin", "-q"])
 
     def test_module_entry_point_exits_with_the_return_code(self, tmp_path):
-        """python -m plgeoadaptels must propagate the code, not swallow it."""
+        """python -m pygeoadaptels must propagate the code, not swallow it."""
         import subprocess
         import sys
         r = subprocess.run(
-            [sys.executable, "-m", "plgeoadaptels", "-i", "/no/such.tif",
+            [sys.executable, "-m", "pygeoadaptels", "-i", "/no/such.tif",
              "-o", str(tmp_path / "o.tif"), "-q"],
             capture_output=True, text=True)
         assert r.returncode == 1
@@ -824,7 +824,7 @@ class TestConsoleEncoding:
     def test_verbose_header_survives_ascii_stdout(self, tmp_path):
         import io
         import sys
-        from plgeoadaptels.sicle import create_sicle
+        from pygeoadaptels.sicle import create_sicle
         src = self._tiny_raster(tmp_path)
         buf = io.TextIOWrapper(io.BytesIO(), encoding="ascii", errors="strict")
         old = sys.stdout

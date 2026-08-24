@@ -1,14 +1,14 @@
-# Contributing to plGeoAdaptels
+# Contributing to pygeoadaptels
 
 Contributions are welcome! Here's how to get started.
 
 ## Setup
 
 ```bash
-git clone https://github.com/igorpawelec/plgeoadaptels.git
-cd plgeoadaptels
+git clone https://github.com/igorpawelec/pygeoadaptels.git
+cd pygeoadaptels
 conda env create -f environment.yaml
-conda activate plgeoadaptels
+conda activate pygeoadaptels
 pip install -e . --no-deps
 ```
 
@@ -32,11 +32,11 @@ pip install -e . --no-deps
 
 The checklist exists because of a specific failure. `max_iters` changed
 default in 0.3.0, and that one change broke CI in two packages at once —
-pyHRG with `int | None`, which is a runtime `TypeError` before Python 3.10
-while the metadata claims `>=3.9`, and rHRG with a stale `man/` page. Neither
-was noticed. **pyHRG then tagged 0.3.0, 0.4.0 and 0.5.0 with the workflow
+pycacumen with `int | None`, which is a runtime `TypeError` before Python 3.10
+while the metadata claims `>=3.9`, and rcacumen with a stale `man/` page. Neither
+was noticed. **pycacumen then tagged 0.3.0, 0.4.0 and 0.5.0 with the workflow
 red**, so three releases could not be imported on the minimum Python they
-advertise. rHRG shipped two the same way, rgeoadaptels two more.
+advertise. rcacumen shipped two the same way, rgeoadaptels two more.
 
 Local tests passed in every one of those cases. They were run on one
 interpreter, on one operating system, by someone who already knew what the
@@ -66,7 +66,7 @@ change was meant to do. The matrix is the part that disagrees.
    `git tag -a vX.Y.Z -m "..." && git push --tags`
 7. If this release changes what the package produces, bump the pin in
    [rgeoadaptels](https://github.com/igorpawelec/rgeoadaptels)'s
-   `.github/workflows/R-CMD-check.yaml`, which installs `plgeoadaptels` from a tag.
+   `.github/workflows/R-CMD-check.yaml`, which installs `pygeoadaptels` from a tag.
    Leaving it stale does not break anything visibly — the R twin goes on
    proving its agreement against the previous release, which is exactly the
    kind of quiet staleness this checklist exists to prevent.

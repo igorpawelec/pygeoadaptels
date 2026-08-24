@@ -67,14 +67,14 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **`cli.build_parser()`, and `main()` now takes `argv`.** The CLI had no
   tests, and it is where this package's only two shipped defects lived: a raw
-  traceback where a message belonged, and `python -m plgeoadaptels` returning
+  traceback where a message belonged, and `python -m pygeoadaptels` returning
   0 after a failure, so a script checking `$?` saw success. Both were fixed
   in 0.3.0 with nothing to keep them fixed.
 
   `main()` read `sys.argv` directly, so testing it meant monkeypatching. It
-  now accepts `argv`, defaulting to `sys.argv[1:]`, which is what pyHRG's CLI
+  now accepts `argv`, defaulting to `sys.argv[1:]`, which is what pycacumen's CLI
   already did.
-- Seven CLI tests, including a subprocess check that `python -m plgeoadaptels`
+- Seven CLI tests, including a subprocess check that `python -m pygeoadaptels`
   propagates the exit code. Verified to discriminate: removing the `sys.exit()`
   from `__main__.py` makes it fail.
 
@@ -114,7 +114,7 @@ All notable changes to this project will be documented in this file.
   the R port: `Generator.choice(replace=False)` cannot be reproduced outside
   NumPy — it needs PCG64 *and* the internals of `choice`, and neither carries
   a stability guarantee. Reimplementing an undocumented ordering detail of a
-  third-party library is precisely what left rHRG disagreeing with
+  third-party library is precisely what left rcacumen disagreeing with
   `scikit-image`'s watershed on 0.25 % of pixels, and doing it again knowingly
   would be a poor trade. Belém et al. treat the sampling as a free choice
   ("one may opt for a simple random sampling"), so it is not part of the
@@ -142,7 +142,7 @@ at two segment counts and on synthetic scenes at two iteration counts.
 ## [0.5.1] — 2026-07-22
 
 ### Fixed
-- **`pip install plgeoadaptels` produced a package that could not be imported.**
+- **`pip install pygeoadaptels` produced a package that could not be imported.**
   `dependencies` was an empty list, paired with a README recommending
   `pip install --no-deps` so that pip would not overwrite conda's
   GDAL/PROJ-linked builds. That flag alone achieves it; the empty list
@@ -151,7 +151,7 @@ at two segment counts and on synthetic scenes at two iteration counts.
   that installs this package to cross-check against it.
 
   `numpy` and `numba` are now declared, because they are what `import
-  plgeoadaptels` actually needs. Neither is linked against GDAL or PROJ, so
+  pygeoadaptels` actually needs. Neither is linked against GDAL or PROJ, so
   the conflict the README warns about does not apply to them. `rasterio`,
   `fiona` and `scipy` stay extras: all three are imported lazily inside the
   functions that use them, never at import time. Conda users lose nothing —
@@ -303,7 +303,7 @@ plausible-looking segmentation. Re-run anything whose numbers you rely on.
   which is verified to run.
 - **The CLI printed tracebacks.** A missing raster surfaced as a raw
   `RasterioIOError` stack; user mistakes now get one clean line on stderr.
-- **`python -m plgeoadaptels` always exited 0.** `__main__.py` called
+- **`python -m pygeoadaptels` always exited 0.** `__main__.py` called
   `main()` without passing its return value to `sys.exit()`, so a failed run
   reported success and any script checking `$?` missed it.
 
@@ -323,7 +323,7 @@ plausible-looking segmentation. Re-run anything whose numbers you rely on.
   SICLE labels are exactly 8-connected — one component per label — and
   around 20x fragmented under a 4-connected reading, so the helper reports
   a defect that is not there.
-- **`plgeoadaptels/test_adaptels.py` moved to `examples/quickstart.py`.** It
+- **`pygeoadaptels/test_adaptels.py` moved to `examples/quickstart.py`.** It
   was not a test but a cell-based scratch script with hardcoded paths to
   `D:\Projects\Test\`. Being named `test_*` inside the package, it broke a
   plain `pytest` run with a collection error and shipped into site-packages.
@@ -373,10 +373,10 @@ plausible-looking segmentation. Re-run anything whose numbers you rely on.
 ## [0.1.0] — 2026-03-04
 
 ### Added
-- Initial Python + Numba reimplementation of plGeoAdaptels
+- Initial Python + Numba reimplementation of pygeoadaptels
 - `create_adaptels()` — GeoTIFF file-based API
 - `adaptels_from_array()` — numpy array API
-- CLI: `plgeoadaptels -i input.tif -o output.tif -t 60`
+- CLI: `pygeoadaptels -i input.tif -o output.tif -t 60`
 - Distance metrics: Minkowski, cosine, angular
 - 4-connectivity (rook) and 8-connectivity (queen)
 - Layer normalization option

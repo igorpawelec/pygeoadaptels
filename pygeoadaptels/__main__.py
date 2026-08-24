@@ -1,4 +1,4 @@
-"""Allow running as: python -m plgeoadaptels"""
+"""Allow running as: python -m pygeoadaptels"""
 import sys
 
 from .cli import main

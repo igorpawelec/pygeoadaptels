@@ -1,9 +1,9 @@
 # `grow_seeds` — seeded spectral region growing ("inverse OBIA")
 
-Specification for implementation in **plGeoAdaptels** (Python) and **rgeoadaptels** (R).
+Specification for implementation in **pygeoadaptels** (Python) and **rgeoadaptels** (R).
 
 Status: design spec. Nothing here has been run. Every claim about existing code is a
-source reading of plGeoAdaptels 0.8.1 / rgeoadaptels 0.2.0 and is marked with the file
+source reading of pygeoadaptels 0.8.1 / rgeoadaptels 0.2.0 and is marked with the file
 and line it came from, so it can be checked rather than trusted.
 
 ---
@@ -43,7 +43,7 @@ the boundaries.
 **Deliberate non-goal.** This function does not decide what "spectrally different" means.
 It consumes an N-band raster and treats the bands as a feature vector. Whether those
 bands are raw RGB, CIELAB, CIECAM02, CIR, a vegetation index, a GLCM texture stack, or
-any combination is the operator's decision, made upstream (e.g. with GeoPalette). See
+any combination is the operator's decision, made upstream (e.g. with pygeopalette). See
 §7 for why this matters more than it sounds.
 
 ---
@@ -53,7 +53,7 @@ any combination is the operator's decision, made upstream (e.g. with GeoPalette)
 The algorithm is already implemented, in both languages, in compiled code. It is the IFT
 core that SICLE runs on.
 
-**Python** — `plgeoadaptels/sicle.py`, `_ift_fmax`, decorated `@njit(cache=True)`
+**Python** — `pygeoadaptels/sicle.py`, `_ift_fmax`, decorated `@njit(cache=True)`
 (sicle.py:43). Signature:
 
 ```
@@ -105,7 +105,7 @@ post-processing their outputs.
 This matters for a reason specific to these packages: R/Python parity. If both languages
 call the same already-verified kernel and differ only in a thin wrapper, the parity
 surface is small and testable. Modifying two kernels in two languages in lockstep is how
-`rHRG != pyHRG` happened. Keep the kernels frozen.
+`rcacumen != pycacumen` happened. Keep the kernels frozen.
 
 ### 3.1 Cost cap → post-processing
 
@@ -285,7 +285,7 @@ segment — decide once, document it, and make both languages do the same thing.
 ## 5. Seed contract: point → pixel
 
 This is the highest-risk part of the whole job, because it is where R and Python will
-disagree silently if it is not pinned down. `rHRG != pyHRG` on real CHMs came from
+disagree silently if it is not pinned down. `rcacumen != pycacumen` on real CHMs came from
 exactly this class of underspecification.
 
 Requirements:

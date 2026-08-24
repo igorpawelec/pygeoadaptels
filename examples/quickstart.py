@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-plGeoAdaptels quickstart, on the GeoTIFF shipped with the repository.
+pygeoadaptels quickstart, on the GeoTIFF shipped with the repository.
 
     pip install -e .
     python examples/quickstart.py
@@ -20,7 +20,7 @@ OUT = os.path.join(HERE, "examples", "output")
 os.makedirs(OUT, exist_ok=True)
 
 # If installed with pip install -e . this just works:
-from plgeoadaptels import create_adaptels, adaptels_from_array
+from pygeoadaptels import create_adaptels, adaptels_from_array
 
 #%% Test 1: Basic numpy array test (no file needed)
 print("=" * 60)

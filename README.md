@@ -1,6 +1,6 @@
-# plGeoAdaptels
+# pygeoadaptels
 
-<img src="https://raw.githubusercontent.com/igorpawelec/plGeoAdaptels/main/www/plGeoAdaptels.png" align="right" width="200"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/pygeoadaptels/main/www/plGeoAdaptels.png" align="right" width="200"/>
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
@@ -39,10 +39,10 @@ The algorithm was applied to standing dead tree detection in:
 # 1. Install native dependencies via conda
 conda install -c conda-forge numpy numba rasterio fiona
 
-# 2. Install plgeoadaptels
+# 2. Install pygeoadaptels
 pip install --no-deps .          # from cloned repo
 # or
-pip install --no-deps git+https://github.com/igorpawelec/plgeoadaptels.git
+pip install --no-deps git+https://github.com/igorpawelec/pygeoadaptels.git
 ```
 
 > **Note:** Dependencies are installed via conda to avoid conflicts with GDAL/PROJ native libraries. The `--no-deps` flag prevents pip from overwriting conda packages.
@@ -52,7 +52,7 @@ pip install --no-deps git+https://github.com/igorpawelec/plgeoadaptels.git
 ### Python API
 
 ```python
-from plgeoadaptels import create_adaptels, adaptels_from_array
+from pygeoadaptels import create_adaptels, adaptels_from_array
 
 # From GeoTIFF — reads, segments, writes output
 labels, n = create_adaptels("input.tif", "output.tif", threshold=60.0)
@@ -75,7 +75,7 @@ labels, n = adaptels_from_array(data, threshold=30.0)
 ### Vectorization (no geopandas needed)
 
 ```python
-from plgeoadaptels.vectorize import vectorize_from_file
+from pygeoadaptels.vectorize import vectorize_from_file
 
 # Adaptel raster → Shapefile (or .gpkg, .geojson)
 n_poly = vectorize_from_file("output.tif", "adaptels.shp")
@@ -84,7 +84,7 @@ n_poly = vectorize_from_file("output.tif", "adaptels.shp")
 ### SICLE superpixels
 
 ```python
-from plgeoadaptels.sicle import sicle_from_array, create_sicle
+from pygeoadaptels.sicle import sicle_from_array, create_sicle
 
 # From numpy arrays — specify desired number of superpixels
 labels, n = sicle_from_array(data, n_segments=200)
@@ -105,7 +105,7 @@ hand-digitised point layer — the operator supplies the objects, the algorithm
 supplies their boundaries.
 
 ```python
-from plgeoadaptels.grow import grow_seeds_from_files
+from pygeoadaptels.grow import grow_seeds_from_files
 
 grow_seeds_from_files(
     "ortho_lab.tif", "dead_trees.shp",
@@ -116,7 +116,7 @@ grow_seeds_from_files(
 ```
 
 `max_cost` is a tolerance in the band units — a ΔE tolerance when the input is
-CIELAB, so convert with GeoPalette first. `band_weights` reshapes the feature
+CIELAB, so convert with pygeopalette first. `band_weights` reshapes the feature
 space (weighting `a*` up separates dead brown from living green), `max_radius`
 bounds the reach, and `fill_holes` closes the pockets a cut leaves inside a
 crown. Label `i` is the region grown from the i-th point, so it joins back to
@@ -128,14 +128,14 @@ keeps it bit-identical to the R twin in
 ### Command line
 
 ```bash
-plgeoadaptels -i input.tif -o output.tif -t 60.0
-plgeoadaptels -i b1.tif -i b2.tif -o result.tif -t 0.03 -8 -d angular -n
+pygeoadaptels -i input.tif -o output.tif -t 60.0
+pygeoadaptels -i b1.tif -i b2.tif -o result.tif -t 0.03 -8 -d angular -n
 ```
 
 ### As Python module
 
 ```bash
-python -m plgeoadaptels -i input.tif -o output.tif -t 60.0
+python -m pygeoadaptels -i input.tif -o output.tif -t 60.0
 ```
 
 ## Parameters
@@ -205,7 +205,7 @@ object-based analysis: zonal statistics over a split adaptel average two
 spatially separate patches into one "object".
 
 ```python
-from plgeoadaptels import adaptels_from_array, enforce_connectivity
+from pygeoadaptels import adaptels_from_array, enforce_connectivity
 
 labels, n = adaptels_from_array(data, threshold=60.0)   # 2770, 265 split
 labels, n = enforce_connectivity(labels)                # 3066, 0 split
@@ -238,8 +238,8 @@ First call includes Numba JIT compilation (\~5 s). Subsequent calls run at near-
 ## Repository structure
 
 ```
-plgeoadaptels/
-├── plgeoadaptels/        # Package source
+pygeoadaptels/
+├── pygeoadaptels/        # Package source
 │   ├── __init__.py       # Public API (lazy imports)
 │   ├── __main__.py       # CLI entry point
 │   ├── adaptels.py       # High-level API (threshold-based)
@@ -281,7 +281,7 @@ If you use this software in your research, please cite:
 
 1. **This implementation:**
 
-> Pawelec, I. (2026). plGeoAdaptels — Scale-Adaptive Superpixels for geospatial data [Software]. https://github.com/igorpawelec/plgeoadaptels
+> Pawelec, I. (2026). pygeoadaptels — Scale-Adaptive Superpixels for geospatial data [Software]. https://github.com/igorpawelec/pygeoadaptels
 
 2. **The original algorithm:**
 

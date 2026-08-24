@@ -2,7 +2,7 @@
 
 The point->pixel contract is tested first and on its own, per SPEC_grow_seeds
 section 9.9, because it is the one place R and Python can disagree silently --
-the same class of underspecification that left rHRG != pyHRG on real CHMs.
+the same class of underspecification that left rcacumen != pycacumen on real CHMs.
 
 The contract (SPEC section 5.1): pixel (r, c) covers the half-open extent
     [x0 + c*w, x0 + (c+1)*w) x (y0 - r*h, y0 - (r+1)*h]
@@ -47,14 +47,14 @@ class TestPointToPixel:
     @pytest.mark.parametrize("label,x,y,er,ec", POINT_TABLE,
                              ids=[t[0] for t in POINT_TABLE])
     def test_contract(self, label, x, y, er, ec):
-        from plgeoadaptels.grow import _point_to_pixel
+        from pygeoadaptels.grow import _point_to_pixel
         r, c = _point_to_pixel(x, y, X0, Y0, W, H)
         assert (r, c) == (er, ec), f"{label}: got ({r},{c}), want ({er},{ec})"
 
     def test_returns_python_ints(self):
         """Flat indexing later does r*cols+c; numpy scalars there are a
         silent source of int64/overflow surprises. Keep them plain ints."""
-        from plgeoadaptels.grow import _point_to_pixel
+        from pygeoadaptels.grow import _point_to_pixel
         r, c = _point_to_pixel(500000.1, 399999.9, X0, Y0, W, H)
         assert type(r) is int and type(c) is int
 
@@ -62,7 +62,7 @@ class TestPointToPixel:
         """The half-open rule is the whole point of specifying this: a point
         on an internal grid line must land on exactly one pixel, the same one
         in both languages. Probe both axes at a shared line."""
-        from plgeoadaptels.grow import _point_to_pixel
+        from pygeoadaptels.grow import _point_to_pixel
         # x exactly on the col2|col3 line, y mid-pixel-row-4
         r, c = _point_to_pixel(X0 + 3 * W, Y0 - 4.5 * H, X0, Y0, W, H)
         assert c == 3, "east edge must belong to the right pixel"
@@ -74,7 +74,7 @@ class TestPointToPixel:
         """Cross-check the closed form against an independent per-pixel
         containment test on every pixel centre -- catches an off-by-one in
         either direction that hand-picked cases might miss."""
-        from plgeoadaptels.grow import _point_to_pixel
+        from pygeoadaptels.grow import _point_to_pixel
         for r in range(ROWS):
             for c in range(COLS):
                 x = X0 + (c + 0.5) * W
@@ -95,7 +95,7 @@ class TestGrowth:
     def test_two_blocks_two_seeds_split_on_the_edge(self):
         """9.1: one seed per block, no cap -> two segments, boundary exactly on
         the block edge, nothing unassigned."""
-        from plgeoadaptels.grow import grow_seeds
+        from pygeoadaptels.grow import grow_seeds
         d, mid = self._two_blocks()
         seeds = np.array([[3, 0], [3, 19]])
         labels = grow_seeds(d, seeds, quiet=True)
@@ -107,7 +107,7 @@ class TestGrowth:
     def test_max_cost_confines_a_single_seed_to_its_block(self):
         """9.2: one seed, cap below the block-to-block jump -> its block only,
         the far block stays -1."""
-        from plgeoadaptels.grow import grow_seeds
+        from pygeoadaptels.grow import grow_seeds
         d, mid = self._two_blocks(lo=10.0, hi=200.0)   # jump = 190
         seeds = np.array([[3, 0]])
         labels = grow_seeds(d, seeds, max_cost=50.0, quiet=True)
@@ -118,7 +118,7 @@ class TestGrowth:
         """9.3: the section 3.3 regression. On a uniform image two seeds split
         at the geometric midpoint, deterministically; without compactness the
         boundary is decided by seed arrival order."""
-        from plgeoadaptels.grow import grow_seeds
+        from pygeoadaptels.grow import grow_seeds
         rows, cols = 15, 20
         d = np.full((1, rows, cols), 42.0)
         # Seeds at col 4 and col 15 -> perpendicular bisector at col 9.5, which
@@ -131,7 +131,7 @@ class TestGrowth:
     def test_label_i_is_seeds_i_under_shuffle(self):
         """9.4: the label contract. Whatever the seed order, the pixel a seed
         sits on carries that seed's own index."""
-        from plgeoadaptels.grow import grow_seeds
+        from pygeoadaptels.grow import grow_seeds
         rng = np.random.default_rng(0)
         d = rng.random((3, 30, 30)) * 255
         seeds = np.array([[5, 5], [5, 25], [25, 5], [25, 25], [15, 15]])
@@ -145,8 +145,8 @@ class TestGrowth:
     def test_defaults_reproduce_one_kernel_call(self):
         """9.5: with every option off, grow_seeds is a strict superset of a
         single _ift_fmax call -- bit-for-bit, not approximately."""
-        from plgeoadaptels.grow import grow_seeds
-        from plgeoadaptels.sicle import _ift_fmax
+        from pygeoadaptels.grow import grow_seeds
+        from pygeoadaptels.sicle import _ift_fmax
         rng = np.random.default_rng(1)
         rows, cols = 40, 50
         d = rng.random((3, rows, cols)) * 255
@@ -167,7 +167,7 @@ class TestGrowth:
     def test_band_weights_can_switch_a_band_off(self):
         """3.2: a zero weight on the discriminating band makes growth ignore
         it. Two bands; band 1 is a step the seed cannot cross under the cap."""
-        from plgeoadaptels.grow import grow_seeds
+        from pygeoadaptels.grow import grow_seeds
         rows, cols = 12, 20
         d = np.empty((2, rows, cols))
         d[0, :, :] = 100.0                 # uniform, carries no information
@@ -188,7 +188,7 @@ class TestGrowth:
         value. The k*k median replaces it with the local signature. Also
         exercises the unit fix: the median is taken on the (here unweighted)
         stack, matching what the kernel then compares against."""
-        from plgeoadaptels.grow import grow_seeds
+        from pygeoadaptels.grow import grow_seeds
         rows, cols = 15, 15
         d = np.full((1, rows, cols), 50.0)
         d[0, 7, 7] = 200.0                 # the click landed on a highlight
@@ -203,7 +203,7 @@ class TestGrowth:
         assert (med >= 0).sum() == rows * cols
 
     def test_seed_window_must_be_odd(self):
-        from plgeoadaptels.grow import grow_seeds
+        from pygeoadaptels.grow import grow_seeds
         d = np.full((1, 8, 8), 10.0)
         with pytest.raises(ValueError, match="odd"):
             grow_seeds(d, np.array([[4, 4]]), seed_window=2, quiet=True)
@@ -212,7 +212,7 @@ class TestGrowth:
         """A bright pixel inside a crown exceeds max_cost and is left -1, a
         donut hole in the polygon. fill_holes closes it; without it the pocket
         stays open."""
-        from plgeoadaptels.grow import grow_seeds
+        from pygeoadaptels.grow import grow_seeds
         pytest.importorskip("scipy")
         d = np.full((1, 11, 11), 50.0)
         d[0, 3, 3] = 200.0                     # interior highlight
@@ -226,7 +226,7 @@ class TestGrowth:
     def test_fill_holes_leaves_nodata_and_edges_alone(self):
         """A pocket that touches nodata is not interior to one crown, so it is
         left as-is -- the guard that stops fill from eating the nodata region."""
-        from plgeoadaptels.grow import grow_seeds
+        from pygeoadaptels.grow import grow_seeds
         pytest.importorskip("scipy")
         d = np.full((1, 11, 11), 50.0)
         d[0, 3, 4] = 200.0                     # highlight -> -1
@@ -240,7 +240,7 @@ class TestGrowth:
     def test_max_radius_caps_the_reach(self):
         """3.5: on a uniform image a single seed would fill everything; the
         radius sends anything beyond it back to -1."""
-        from plgeoadaptels.grow import grow_seeds
+        from pygeoadaptels.grow import grow_seeds
         rows, cols = 21, 21
         d = np.full((1, rows, cols), 42.0)
         seeds = np.array([[10, 10]])
@@ -284,7 +284,7 @@ class TestFromFiles:
 
     def test_array_points_land_on_their_pixels(self, tmp_path):
         pytest.importorskip("rasterio")
-        from plgeoadaptels.grow import grow_seeds_from_files
+        from pygeoadaptels.grow import grow_seeds_from_files
         src = self._raster()
         pts_rc, pts_xy = self._valid_seed_pixels(src)
         out_tif = tmp_path / "labels.tif"
@@ -303,7 +303,7 @@ class TestFromFiles:
     def test_reads_a_gpkg_point_layer_the_same_as_an_array(self, tmp_path):
         fiona = pytest.importorskip("fiona")
         pytest.importorskip("rasterio")
-        from plgeoadaptels.grow import grow_seeds_from_files
+        from pygeoadaptels.grow import grow_seeds_from_files
         src = self._raster()
         _, pts_xy = self._valid_seed_pixels(src)
 
@@ -324,7 +324,7 @@ class TestFromFiles:
     def test_writes_polygons(self, tmp_path):
         fiona = pytest.importorskip("fiona")
         pytest.importorskip("rasterio")
-        from plgeoadaptels.grow import grow_seeds_from_files
+        from pygeoadaptels.grow import grow_seeds_from_files
         src = self._raster()
         _, pts_xy = self._valid_seed_pixels(src)
         out_gpkg = tmp_path / "crowns.gpkg"
@@ -363,7 +363,7 @@ class TestFromFiles:
         or the wrapper has to own any shift in them."""
         pytest.importorskip("fiona")
         pytest.importorskip("rasterio")
-        from plgeoadaptels.grow import grow_seeds_from_files
+        from pygeoadaptels.grow import grow_seeds_from_files
         lab, shp = self._lab(), self._dead_trees()
 
         labels = grow_seeds_from_files(lab, shp, max_cost=10, quiet=True)
@@ -386,7 +386,7 @@ class TestFromFiles:
         band directly, not asserted from theory."""
         pytest.importorskip("fiona")
         rasterio = pytest.importorskip("rasterio")
-        from plgeoadaptels.grow import grow_seeds_from_files
+        from pygeoadaptels.grow import grow_seeds_from_files
         lab, shp = self._lab(), self._dead_trees()
         a_star = rasterio.open(lab).read(2)
 
@@ -410,7 +410,7 @@ class TestFromFiles:
         gpd = pytest.importorskip("geopandas")
         pytest.importorskip("rasterio")
         from shapely.geometry import Point
-        from plgeoadaptels.grow import grow_seeds_from_files
+        from pygeoadaptels.grow import grow_seeds_from_files
         src = self._raster()
         pts_rc, pts_xy = self._valid_seed_pixels(src)
         gdf = gpd.GeoDataFrame(geometry=[Point(x, y) for x, y in pts_xy],
@@ -436,7 +436,7 @@ class TestFromFiles:
         fiona = pytest.importorskip("fiona")
         pytest.importorskip("rasterio")
         from fiona.transform import transform as fiona_transform
-        from plgeoadaptels.grow import grow_seeds_from_files
+        from pygeoadaptels.grow import grow_seeds_from_files
         src = self._raster()
         pts_rc, pts_xy = self._valid_seed_pixels(src)
 
