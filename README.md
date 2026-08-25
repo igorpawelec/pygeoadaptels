@@ -1,6 +1,6 @@
 # pygeoadaptels
 
-<img src="https://raw.githubusercontent.com/igorpawelec/pygeoadaptels/main/www/plGeoAdaptels.png" align="right" width="200"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/pygeoadaptels/main/www/pygeoadaptels.png" align="right" width="200"/>
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
