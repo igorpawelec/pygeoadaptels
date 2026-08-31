@@ -1,6 +1,17 @@
 # Changelog
 
 
+## [0.10.2] — 2026-08-30
+
+### Fixed
+- **The output driver was inherited from the input.** The write profile is built
+  from the input's metadata, which carries its driver, so the result was written
+  in the input's format under a `.tif` name. For a VRT input it failed outright
+  ("Writing through VRTSourcedRasterBand is not supported"), which is how it
+  surfaced: selecting bands in the QGIS plugin hands these functions a VRT of
+  the chosen bands. The driver is now stated explicitly.
+
+
 ## [0.10.1] — 2026-08-30
 
 ### Fixed

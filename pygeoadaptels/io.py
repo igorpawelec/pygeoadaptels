@@ -119,6 +119,12 @@ def write_raster(filepath, labels, meta, cols, rows, nodata=-9999,
     
     out_meta = meta.copy()
     out_meta.update({
+        # Explicit, because meta came from the input and carries its driver
+        # with it. This function writes a GeoTIFF whatever it was handed, and
+        # inheriting the input's format silently writes the wrong one -- or,
+        # for a VRT input, fails outright with "Writing through
+        # VRTSourcedRasterBand is not supported".
+        'driver': 'GTiff',
         'dtype': 'int32',
         'count': 1,
         'nodata': nodata,
