@@ -43,7 +43,7 @@ try:
     from importlib.metadata import version as _version
     __version__ = _version("pygeoadaptels")
 except Exception:
-    __version__ = "0.10.0"
+    __version__ = "0.10.1"
 
 __author__ = "Igor Pawelec"
 

@@ -12,6 +12,21 @@ Based on:
 import os
 import numpy as np
 
+# Features are written in batches rather than one at a time.
+#
+# A GeoPackage is SQLite, and one write per feature is one transaction per row.
+# Measured on a 3000x3000 adaptel raster (300 809 polygons): 204.3 s writing
+# feature by feature against 16.8 s in batches of 20 000 -- the same polygons,
+# read back and counted, 12x faster. A Shapefile takes 12.1 s either way, so
+# only the GeoPackage path was ever paying this, which is unfortunate because
+# it is the format QGIS Processing offers first. On a full orthophoto the
+# difference is about fifty minutes against four.
+#
+# The spatial index was the other suspect and it is innocent: creating the
+# layer with SPATIAL_INDEX=NO changed 204.3 s into 195.9 s, i.e. nothing. It is
+# left enabled, since 300 000 polygons without one are painful to pan around.
+WRITE_BATCH = 20000
+
 try:
     from tqdm import tqdm as _tqdm
     _HAS_TQDM = True
@@ -124,16 +139,15 @@ def vectorize_adaptels(labels, transform, crs_wkt,
         max_id = int(valid.max()) + 1 if valid.size > 0 else 1
         pixel_counts = np.bincount(valid, minlength=max_id)
 
-    # Estimate polygon count for progress bar
-    n_unique = int(len(np.unique(data[mask])))
-
     # Polygonize + write
     n_polygons = 0
     poly_iter = shapes(data, mask=mask, transform=transform,
                        connectivity=connectivity)
     if _HAS_TQDM and not quiet:
+        # Only for the bar's total, so it is computed only when there is a bar:
+        # it sorts every valid pixel, which is pure waste under ``quiet``.
         poly_iter = _tqdm(poly_iter, desc="Vectorizing", unit="poly",
-                          total=n_unique)
+                          total=int(len(np.unique(data[mask]))))
 
     with fiona.open(
         output_path,
@@ -142,6 +156,7 @@ def vectorize_adaptels(labels, transform, crs_wkt,
         crs_wkt=crs_wkt,
         schema=schema
     ) as dst:
+        batch = []
         for geom, value in poly_iter:
             adaptel_id = int(value)
             if adaptel_id < 0:
@@ -159,8 +174,13 @@ def vectorize_adaptels(labels, transform, crs_wkt,
                 feature['properties']['area_m2'] = round(area, 2)
                 feature['properties']['perimeter'] = round(perimeter, 2)
 
-            dst.write(feature)
+            batch.append(feature)
             n_polygons += 1
+            if len(batch) >= WRITE_BATCH:
+                dst.writerecords(batch)
+                batch = []
+        if batch:
+            dst.writerecords(batch)
 
     return n_polygons
 

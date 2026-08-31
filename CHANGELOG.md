@@ -1,6 +1,24 @@
 # Changelog
 
 
+## [0.10.1] — 2026-08-30
+
+### Fixed
+- **Vectorizing to a GeoPackage was about 12x slower than it needed to be.**
+  Features were written one at a time, which in SQLite is one transaction per
+  row. Measured on a 3000x3000 adaptel raster (300 809 polygons): 204.3 s
+  before, 16.8 s after, with the same polygons read back and counted. A full
+  orthophoto goes from roughly fifty minutes to four. Shapefile output was
+  never affected — only the format QGIS Processing offers first.
+  The spatial index was the other suspect and was measured innocent
+  (`SPATIAL_INDEX=NO` changed 204.3 s into 195.9 s), so it stays enabled.
+
+### Changed
+- The unique-label scan that supplies the progress bar's total now runs only
+  when there is a progress bar; under `quiet=True` it was sorting every valid
+  pixel for nothing.
+
+
 ## [0.10.0] — 2026-08-24
 
 ### Changed
