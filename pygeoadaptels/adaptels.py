@@ -188,15 +188,31 @@ def enforce_connectivity(labels, min_size=0):
 
     # absorb slivers into whichever labelled neighbour they touch most. Done
     # after the main pass so they can attach to ids created during it.
+    #
+    # Everything here happens inside the fragment's bounding box padded by
+    # one pixel: a 4-connected ring cannot reach further than that, so the
+    # result is identical to working on the full raster. It is not identical
+    # in cost. The earlier version allocated, dilated, masked and wrote a
+    # full-size array per fragment, which is O(fragments x pixels) -- on a
+    # 2400x2400 window at min_size=10 that was 551 s against 3.6 s for
+    # min_size=0. The padding is what makes it correct, not just fast: a
+    # single-pixel sliver has its entire ring outside its own box.
+    H, W = labels.shape
     for box, frag in small:
-        full = np.zeros(labels.shape, dtype=bool)
-        full[box] = frag
-        ring = ndimage.binary_dilation(full, structure=structure) & ~full
-        nb = out[ring & (out >= 0)]
+        r0 = max(box[0].start - 1, 0)
+        r1 = min(box[0].stop + 1, H)
+        c0 = max(box[1].start - 1, 0)
+        c1 = min(box[1].stop + 1, W)
+        local = np.zeros((r1 - r0, c1 - c0), dtype=bool)
+        local[box[0].start - r0:box[0].stop - r0,
+              box[1].start - c0:box[1].stop - c0] = frag
+        ring = ndimage.binary_dilation(local, structure=structure) & ~local
+        o = out[r0:r1, c0:c1]                    # a view: writes go through
+        nb = o[ring & (o >= 0)]
         if nb.size:
-            out[full] = np.bincount(nb).argmax()
+            o[local] = np.bincount(nb).argmax()
         else:
-            out[full] = new_id                   # nothing adjacent: keep it
+            o[local] = new_id                    # nothing adjacent: keep it
             new_id += 1
 
     out[~valid] = labels[~valid]

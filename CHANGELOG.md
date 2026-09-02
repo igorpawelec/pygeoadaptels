@@ -1,6 +1,21 @@
 # Changelog
 
 
+## [0.10.3] — 2026-09-01
+
+### Fixed
+- **`enforce_connectivity(min_size=...)` was ~150x slower than `min_size=0`.**
+  Each sliver was absorbed by allocating, dilating, masking and writing a
+  full-raster array, i.e. O(fragments x pixels). On a 2400x2400 window at
+  min_size=10 that was 551 s against 3.6 s. The work now happens inside the
+  fragment's bounding box padded by one pixel -- a 4-connected ring reaches no
+  further -- which is 5.4 s on the same window with a bit-identical result.
+  The padding is what keeps it correct: a fragment's only labelled neighbour
+  can lie outside the box `find_objects` reports for its label. Pinned by
+  `tests/test_enforce_connectivity_slivers.py`, which fails for the unpadded
+  version.
+
+
 ## [0.10.2] — 2026-08-30
 
 ### Fixed

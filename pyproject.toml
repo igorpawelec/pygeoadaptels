@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pygeoadaptels"
-version = "0.10.2"
+version = "0.10.3"
 description = "Scale-Adaptive Superpixels (Adaptels) for geospatial raster data"
 readme = "README.md"
 license = "GPL-3.0-or-later"
