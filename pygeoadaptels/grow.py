@@ -179,6 +179,13 @@ def _fill_holes(labels2d, mask2d):
     swallowing the nodata region or bridging two crowns, and they are
     topological, so the R twin reaches the same result regardless of how
     components are enumerated.
+
+    The census of every pocket's 4-neighbours is taken for all pockets at
+    once, from four shifted views of the label and mask arrays -- O(pixels).
+    The first version looped over the pockets and dilated each one on the
+    full raster, O(pockets x pixels): 36 s on a 2400x2400 window with 1500
+    crowns, and hours on a 150-megapixel orthophoto, where the pocket count
+    and the raster grow together. Same result, bit for bit.
     """
     from scipy import ndimage
     struct = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
@@ -192,14 +199,37 @@ def _fill_holes(labels2d, mask2d):
                                          structure=struct)
     holes = fillable & ~outside
     cc, n = ndimage.label(holes, structure=struct)
-    for k in range(1, n + 1):
-        pocket = cc == k
-        nb = ndimage.binary_dilation(pocket, structure=struct) & ~pocket
-        if (mask2d[nb] != 0).any():          # touches nodata: not interior
-            continue
-        nb_labels = np.unique(labels2d[nb & (labels2d >= 0)])
-        if len(nb_labels) == 1:
-            out[pocket] = nb_labels[0]
+    if n == 0:
+        return out
+    rows, cols = labels2d.shape
+    pocket, nb_label, nb_nodata = [], [], []
+    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        # the pocket pixels that have a neighbour in direction (dr, dc), and
+        # that neighbour, as two aligned views
+        ps = (slice(max(0, -dr), rows - max(0, dr)), slice(max(0, -dc), cols - max(0, dc)))
+        ns = (slice(max(0, dr), rows - max(0, -dr)), slice(max(0, dc), cols - max(0, -dc)))
+        pv = cc[ps]
+        sel = pv > 0
+        pocket.append(pv[sel])
+        nb_label.append(labels2d[ns][sel])
+        nb_nodata.append(mask2d[ns][sel] != 0)
+    pocket = np.concatenate(pocket).astype(np.int64)
+    nb_label = np.concatenate(nb_label).astype(np.int64)
+    nb_nodata = np.concatenate(nb_nodata)
+    touches_nodata = np.bincount(pocket, weights=nb_nodata, minlength=n + 1) > 0
+    labelled = nb_label >= 0
+    stride = np.int64(labels2d.max()) + 2
+    pairs = np.unique(pocket[labelled] * stride + nb_label[labelled])   # distinct (pocket, label)
+    pair_pocket = pairs // stride
+    pair_label = pairs % stride
+    n_labels = np.bincount(pair_pocket, minlength=n + 1)
+    single = (n_labels == 1) & ~touches_nodata                          # exactly one label, no nodata
+    fill = np.full(n + 1, -1, dtype=np.int64)
+    keep = single[pair_pocket]
+    fill[pair_pocket[keep]] = pair_label[keep]
+    target = fill[cc]
+    sel = holes & (target >= 0)
+    out[sel] = target[sel].astype(out.dtype)
     return out
 
 

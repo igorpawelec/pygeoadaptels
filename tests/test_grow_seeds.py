@@ -455,3 +455,26 @@ class TestFromFiles:
         # its own pixel.
         for i, (r, c) in enumerate(pts_rc):
             assert labels[r, c] == i, (i, r, c, labels[r, c])
+
+
+def test_fill_holes_rules_on_a_toy_raster():
+    """A pocket bounded by one label is filled; one touching two labels, one
+    touching nodata and one reaching the border are left alone."""
+    import numpy as np
+    from pygeoadaptels.grow import _fill_holes
+    lab = np.full((7, 12), -1, dtype=np.int32)
+    lab[1:6, 1:6] = 0                     # crown 0 with a pocket at (3, 3)
+    lab[3, 3] = -1
+    lab[1:6, 6:11] = 1                    # crown 1 next to it
+    lab[3, 5] = -1                        # pocket between crown 0 and crown 1
+    lab[3, 6] = -1
+    lab[5, 8] = -1                        # pocket in crown 1 touching nodata below
+    mask = np.zeros(lab.shape, dtype=np.uint8)
+    mask[6, 8] = 1
+    lab[0, 0] = -1                        # border pixel stays unassigned
+    out = _fill_holes(lab, mask)
+    assert out[3, 3] == 0                 # interior pocket of crown 0: filled
+    assert out[3, 5] == -1 and out[3, 6] == -1   # bounded by two labels: kept
+    assert out[5, 8] == -1                # touches nodata: kept
+    assert out[0, 0] == -1                # reaches the border: kept
+    assert (out[lab >= 0] == lab[lab >= 0]).all()

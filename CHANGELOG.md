@@ -1,6 +1,17 @@
 # Changelog
 
 
+## [0.10.4] — 2026-09-07
+
+### Fixed
+- **`grow_seeds(fill_holes=True)` took hours on a large orthophoto.** The
+  pocket filling looped over every unassigned pocket and dilated it on the
+  full raster, O(pockets x pixels): 36 s on a 2400x2400 window with 1500
+  crowns against 4 s for the growth itself, and the pocket count grows with
+  the raster, so a 150-megapixel scene ran for hours. The census of every
+  pocket's 4-neighbours is now taken at once from four shifted views,
+  O(pixels): under a second on the same window, bit-identical labels.
+
 ## [0.10.3] — 2026-09-01
 
 ### Fixed
