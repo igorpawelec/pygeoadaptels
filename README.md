@@ -2,6 +2,8 @@
 
 <img src="https://raw.githubusercontent.com/igorpawelec/pygeoadaptels/main/www/pygeoadaptels.png" align="right" width="200"/>
 
+[![tests](https://github.com/igorpawelec/pygeoadaptels/actions/workflows/tests.yml/badge.svg)](https://github.com/igorpawelec/pygeoadaptels/actions/workflows/tests.yml)
+[![Release](https://img.shields.io/github/v/release/igorpawelec/pygeoadaptels)](https://github.com/igorpawelec/pygeoadaptels/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 **Scale-Adaptive Superpixels (Adaptels) and SICLE superpixels for geospatial raster data.**
