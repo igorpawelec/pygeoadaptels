@@ -5,11 +5,13 @@ type: software
 authors:
   - family-names: Pawelec
     given-names: Igor
-    affiliation: "Kraków, Poland"
+    affiliation: "University of Agriculture in Kraków, Poland"
+    email: igor.pawelec@urk.edu.pl
+    orcid: "https://orcid.org/0009-0005-9798-3596"
 repository-code: "https://github.com/igorpawelec/pygeoadaptels"
 license: GPL-3.0-or-later
 version: "0.10.4"
-date-released: "2026-09-01"
+date-released: "2026-09-21"
 references:
   - type: article
     title: "Scale-Adaptive Superpixels"
